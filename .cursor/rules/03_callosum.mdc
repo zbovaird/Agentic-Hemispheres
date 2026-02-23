@@ -1,0 +1,57 @@
+---
+description: USE WHEN agents are communicating or handing off tasks.
+globs:
+alwaysApply: true
+---
+
+# The Corpus Callosum: The 2% Signaling Protocol
+
+To prevent "context pollution," communication between agents is limited to high-signal metadata.
+
+## Communication Constraints
+
+- **Selective Signaling:** Only 2% of total context is shared during a hand-off. Never dump the full codebase into a hand-off message.
+- **Interhemispheric Inhibition:** The Master must review every diff. If the Emissary's output is noisy, the Master will issue a "Suppression Signal" to force a retry.
+
+## The JSON Handshake
+
+All hand-offs between Master and Emissary must follow this structure:
+
+```json
+{
+  "intent_id": "feat-auth-endpoint-001",
+  "architectural_constraint": "Must use existing AuthMiddleware pattern; no new dependencies without Master approval.",
+  "target_files": [
+    "src/controllers/auth.controller.ts",
+    "src/migrations/003_add_sessions.ts",
+    "tests/auth.controller.test.ts"
+  ],
+  "acceptance_criteria": [
+    "POST /api/auth/session returns 201 with valid JWT",
+    "Migration is reversible",
+    "All existing tests still pass"
+  ],
+  "implementation_proof": {
+    "test_log": "<stdout from test runner>",
+    "diff_summary": "<git diff --stat output>",
+    "lint_status": "pass | fail"
+  }
+}
+```
+
+## Signal Types
+
+**APPROVE** — Master confirms the Emissary's work is aligned:
+```json
+{ "signal": "APPROVE", "intent_id": "feat-auth-endpoint-001", "follow_up": ["Update API docs"] }
+```
+
+**SUPPRESS** — Master detects drift and forces a rollback:
+```json
+{ "signal": "SUPPRESS", "intent_id": "feat-auth-endpoint-001", "reason": "Introduced undeclared dependency on redis.", "action": "ROLLBACK_AND_RETRY" }
+```
+
+**ESCALATE** — Emissary hits the Clarification Threshold (5 failed iterations):
+```json
+{ "signal": "ESCALATE", "intent_id": "feat-auth-endpoint-001", "iteration_count": 5, "failure_pattern": "Type mismatch in AuthMiddleware.validate()", "request": "Architectural guidance needed." }
+```

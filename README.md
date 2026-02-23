@@ -125,33 +125,35 @@ Open each worktree in a new Cursor window. The Master in the main repo reviews P
 
 ## How to Use It
 
-The template configures Plan Mode as the Master (Opus) and Agent Mode as the Emissary (Flash). The rules load automatically—when you open Plan Mode, the Master governs; when you open Agent Mode, the Emissary executes. The handoff flows via the structured protocol (gestalt → handshake → proof). Cursor requires selecting the mode for each phase; the workspace ensures the correct agent and model apply in that mode.
+You work with the **Master (Claude 4.6 Opus)** as your primary agent. When it's time to implement, the Master spawns the **Emissary (Gemini 2.5 Flash)** as a subagent. The Emissary runs autonomously, does the work, and returns its proof. The Master then reviews. You don't manually switch between modes — the handoff happens automatically via the structured protocol.
 
 ### Phase 1: Master Plans
 
-In **Plan Mode** (Shift+Tab), with **Claude 4.6 Opus** selected, describe what you want:
+With **Claude 4.6 Opus** as your model, describe what you want to build:
 
 > Create an architectural plan for [YOUR FEATURE]. Output the plan to `.cursor/plans/gestalt_01.md` with target files, acceptance criteria, and constraints.
 
-The Master researches the codebase, produces a plan, and generates a JSON handshake for the Emissary.
+The Master researches the codebase, produces a gestalt plan, and generates a JSON handshake for the Emissary.
 
-### Phase 2: Emissary Implements
+### Phase 2: Emissary Implements (Subagent)
 
-In **Agent Mode** (Cmd+I / Ctrl+I), with **Gemini 2.5 Flash** selected, hand it the plan:
+The Master dispatches the Emissary as a **subagent** with Gemini 2.5 Flash. The subagent receives only the JSON handshake (~2% of context) and executes autonomously — strict TDD, file boundaries, no scope creep. When done, it returns an `implementation_proof` or an `ESCALATE`/`SURPRISE` signal back to the Master.
 
-> Follow the plan in @gestalt_01.md. Only touch the files in `target_files`. Write tests first, then implement. Return an implementation proof when done.
+You can trigger this by asking the Master:
 
-The Emissary executes with strict TDD, file boundaries, and no scope creep.
+> Dispatch the Emissary to implement the plan in @gestalt_01.md. The Emissary should only touch the files in `target_files`, write tests first, then implement. It should return an implementation proof when done.
 
 ### Phase 3: Master Reviews
 
-Back in **Plan Mode** with **Claude 4.6 Opus**:
+The Master receives the Emissary's proof in the same session and reviews it:
 
-> Review the Emissary's implementation proof. If aligned, APPROVE. If drift detected, SUPPRESS with reason.
+- Tests pass? Diff within boundary? No undeclared dependencies?
+- If aligned: `APPROVE` with follow-up tasks.
+- If drift detected: `SUPPRESS` with rollback instructions.
 
 ### Phase 4: Repeat
 
-Continue the Right → Left → Right spiral. See `High-level plan/high-level plan.md` for the full workflow, signal types, and economics.
+Continue the Right → Left → Right spiral. The Global Workspace at `.cursor/plans/workspace_state.json` carries state between cycles. See `High-level plan/high-level plan.md` for the full workflow, signal types, and economics.
 
 ### Parallel Tasks
 
@@ -159,7 +161,7 @@ Continue the Right → Left → Right spiral. See `High-level plan/high-level pl
 ./scripts/wt-spawn.sh <task-name> <branch>
 ```
 
-Open each worktree in a new Cursor window with its own Emissary. Master reviews and merges from the main repo.
+Open each worktree in a new Cursor window with its own Emissary subagent. The Master in the main repo reviews PRs from each worktree and merges back.
 
 ### Security Audit MCP
 
@@ -171,21 +173,21 @@ The template defaults to Claude 4.6 Opus (Master) and Gemini 2.5 Flash (Emissary
 
 ### Master (Right Hemisphere) — high-reasoning model
 
-Best for: architectural planning, code review, contradiction detection, strategy.
+Best for: architectural planning, code review, contradiction detection, strategy. This is the model you select in Cursor as your primary agent.
 
 To change:
 1. Open `.cursor/rules/01_master_rh.mdc` and update the header (e.g., `Claude 4.6 Opus` → `DeepSeek-R1`).
-2. In Cursor, select your preferred model when in **Plan Mode**.
+2. In Cursor, select your preferred high-reasoning model as the active model.
 
 Good alternatives: Claude Opus (any version), DeepSeek-R1, Gemini 3 Pro, GPT-4o.
 
 ### Emissary (Left Hemisphere) — fast, task-focused model
 
-Best for: implementation, TDD, sequential coding, tool calling.
+Best for: implementation, TDD, sequential coding, tool calling. This is the model the Master spawns as a subagent.
 
 To change:
 1. Open `.cursor/rules/02_emissary_lh.mdc` and update the header (e.g., `Gemini 2.5 Flash` → `Gemini 3 Flash`).
-2. In Cursor, select your preferred model when in **Agent Mode**.
+2. When dispatching the Emissary subagent, specify the model (e.g., `model: "fast"` in the Task tool).
 
 Good alternatives: Gemini Flash (any version), Claude Sonnet, GPT-4o-mini, Codestral.
 

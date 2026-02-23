@@ -4,8 +4,8 @@ This project uses a **bi-hemispheric AI orchestration** model (Master–Emissary
 
 ## Architecture Overview
 
-- **Master (RH):** High-reasoning model (Claude 4.6 Opus). Use for planning, architecture, code review, and strategy. Configure in Cursor as the model for Plan Mode.
-- **Emissary (LH):** Task-focused model (Gemini 2.5 Flash). Use for implementation, TDD, and sequential coding. Configure in Cursor as the model for Agent Mode.
+- **Master (RH):** High-reasoning model (Claude 4.6 Opus). The user's primary agent — handles planning, architecture, code review, and strategy.
+- **Emissary (LH):** Task-focused model (Gemini 2.5 Flash). Spawned by the Master as a subagent for implementation, TDD, and sequential coding. Returns results to the Master automatically.
 - **Corpus Callosum:** Communication is limited to structured JSON handshakes and signals—never dump full context.
 
 ## Project Structure
@@ -30,7 +30,9 @@ Master issues a JSON handshake with `intent_id`, `architectural_constraint`, `ta
 
 ## When Using This Template
 
-1. Open the repo in Cursor and ensure Claude 4.6 Opus and Gemini 2.5 Flash are available.
-2. For security-audit MCP: set `SNYK_TOKEN` in your environment.
-3. Run `scripts/wt-spawn.sh <task-name> <branch>` for parallel work, then open each worktree in a new Cursor window.
-4. Follow `High-level plan/high-level plan.md` for the Plan → Implement → Review workflow.
+1. Open the repo in Cursor and select **Claude 4.6 Opus** (or your preferred high-reasoning model) as the active model.
+2. Ensure **Gemini 2.5 Flash** (or your preferred fast model) is enabled — the Master will spawn it as a subagent.
+3. Describe your task to the Master. It plans, dispatches the Emissary subagent, and reviews the result. No manual mode switching needed.
+4. For security-audit MCP: set `SNYK_TOKEN` in your environment.
+5. Run `scripts/wt-spawn.sh <task-name> <branch>` for parallel work, then open each worktree in a new Cursor window.
+6. See `High-level plan/high-level plan.md` for the full workflow and signal types.

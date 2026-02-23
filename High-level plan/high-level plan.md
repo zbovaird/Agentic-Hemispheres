@@ -23,12 +23,13 @@ Cursor reads `.cursor/rules/` automatically when you open the project. The `.mdc
 
 ## 2. Step-by-Step Workflow
 
-### Phase 1: Start the Master (Plan Mode)
+You work with the Master (Claude 4.6 Opus) as your primary agent. The Master spawns the Emissary (Gemini 2.5 Flash) as a subagent when it's time to implement. The handoff happens automatically — you don't manually switch modes.
+
+### Phase 1: Master Plans
 
 1. Open the project in Cursor.
-2. Switch to **Plan Mode** (Shift + Tab in the chat panel).
-3. Select **Claude 4.6 Opus** as the model.
-4. Describe what you want to build. The Master will research the codebase and produce an architectural plan.
+2. Select **Claude 4.6 Opus** as the model.
+3. Describe what you want to build.
 
 **Example prompt:**
 
@@ -36,28 +37,24 @@ Cursor reads `.cursor/rules/` automatically when you open the project. The `.mdc
 
 The Master outputs a gestalt plan and a JSON handshake with `intent_id`, `target_files`, `architectural_constraint`, and `acceptance_criteria`.
 
-### Phase 2: Hand Off to the Emissary (Agent Mode)
+### Phase 2: Master Dispatches Emissary (Subagent)
 
-1. Switch to **Agent Mode** (Cmd+I / Ctrl+I).
-2. Select **Gemini 2.5 Flash** as the model.
-3. Give the Emissary the handshake and tell it to execute.
+The Master spawns the Emissary as a **subagent** running Gemini 2.5 Flash. The subagent receives only the JSON handshake (~2% of context) and executes autonomously.
 
 **Example prompt:**
 
-> Act as the Emissary (LH). Follow the plan in @gestalt_01.md. You are only permitted to touch the files listed in `target_files`. Write tests first (TDD), then implement. Run tests after every change. Return an implementation proof when done.
+> Dispatch the Emissary to implement the plan in @gestalt_01.md. The Emissary should only touch the files in `target_files`. It must write tests first (TDD), then implement, run tests after every change, and return an implementation proof when done.
 
-The Emissary works within its boundaries: strict TDD, file boundary enforcement, no scope creep. It returns a structured `implementation_proof` or an `ESCALATE` signal if it hits a problem.
+The Emissary subagent works within its boundaries: strict TDD, file boundary enforcement, no scope creep. It returns a structured `implementation_proof`, or an `ESCALATE` / `SURPRISE` signal if it hits a problem. The Master receives the result in the same session.
 
-### Phase 3: Master Reviews (Plan Mode)
+### Phase 3: Master Reviews
 
-1. Switch back to **Plan Mode** with **Claude 4.6 Opus**.
-2. Ask the Master to review the Emissary's output.
+The Master reviews the Emissary's proof automatically in the same conversation:
 
-**Example prompt:**
-
-> Review the Emissary's implementation proof. Check: tests pass, diff stays within target_files, no undeclared dependencies. If aligned, issue APPROVE. If drift detected, issue SUPPRESS with reason and action.
-
-The Master issues `APPROVE` (with follow-up tasks) or `SUPPRESS` (with rollback instructions).
+- Tests pass? Diff within `target_files` boundary? No undeclared dependencies?
+- If aligned: issues `APPROVE` with follow-up tasks.
+- If drift detected: issues `SUPPRESS` with rollback instructions.
+- If the Emissary escalated: Master evaluates the `ESCALATE` signal, revises constraints, and re-dispatches.
 
 ### Phase 4: Repeat (Spiral)
 

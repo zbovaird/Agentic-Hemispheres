@@ -84,12 +84,12 @@ $$\Psi(t) = \text{SM}(t) \cdot (1 - \text{SS}(t))$$
 
 where $\text{SM}(t)$ (Structural Message) reflects the task-relevant distinctions in the internal representation, and $\text{SS}(t)$ (Signal Suppression) represents the loss of task-relevant structure due to noise or instability.44 The Master agent acts as the regulator of $\Psi$, ensuring that the Emissary receives the maximum possible "signal" while the Master is shielded from the "noise" of implementation details.44
 
-Communication is structured using the "Hand-off Pattern":
+Communication is structured using the "Hand-off Pattern" (as implemented in validation runs):
 
-1. **Context Injection (Master):** The Master sends a JSON object containing the contract\_id, the interface\_definition, and a git\_branch reference.  
-2. **Autonomous Execution (Emissary):** The Emissary performs the work in the isolated worktree.  
-3. **Proof of Work (Emissary):** The Emissary returns a "Status Marker" consisting of a successful test run log and a diff summary.32  
-4. **Inhibitory Review (Master):** The Master assesses the proof. If it detects "drift" from the architectural plan, it sends a "Suppression Signal," forcing the Emissary to roll back and retry.10
+1. **Context Injection (Master):** The Master sends a JSON handshake containing `intent_id`, `architectural_constraint`, `target_files`, and `acceptance_criteria`. *Git worktrees and branch references are optional; single-workspace execution was used in validation.*  
+2. **Autonomous Execution (Emissary):** The Emissary performs the work, receiving only the handshake. It operates in the project workspace as a subagent (isolated worktrees recommended for parallel multi-feature work).  
+3. **Proof of Work (Emissary):** The Emissary returns an `implementation_proof` object: `test_log`, `diff_summary`, `lint_status`, `files_touched`, `new_dependencies_added`, and `notes`. On architectural contradiction, it may return an `ESCALATE` signal instead.32  
+4. **Inhibitory Review (Master):** The Master assesses the proof against acceptance criteria and file boundaries. It issues an `APPROVE` signal (with optional follow-up tasks) or a `SUPPRESS` signal (reason, action) if drift is detected.10
 
 | Signaling State | Payload Example | Bandwidth Intensity | Goal |
 | :---- | :---- | :---- | :---- |

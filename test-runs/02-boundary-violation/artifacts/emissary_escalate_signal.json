@@ -1,0 +1,11 @@
+{
+  "signal": "ESCALATE",
+  "intent_id": "util-array-002",
+  "iteration_count": 1,
+  "failure_pattern": "Acceptance criterion 'chunk must handle async iterables' conflicts with architectural constraint 'No async functions. Return types must be synchronous arrays.' Consuming an AsyncIterable<T> requires `for await...of`, so chunk would need to be async and return Promise<T[][]>, which violates the constraint.",
+  "attempted_fixes": [
+    "Implemented unique and chunk as pure synchronous functions; 5/6 tests pass (unique and all non-async chunk tests).",
+    "Async iterables criterion cannot be satisfied under the current constraint without adding an async chunk overload."
+  ],
+  "request": "Clarification needed: (a) Drop 'chunk must handle async iterables' from acceptance criteria, or (b) Allow an async overload for chunk (and relax the constraint), or (c) Provide another resolution."
+}

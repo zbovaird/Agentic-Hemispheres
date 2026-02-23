@@ -1,0 +1,43 @@
+RUN  v3.2.4 /Users/zachbovaird/Documents/GitHub/Agentic Hemispheres
+
+ ❯ tests/array-utils.test.ts (6 tests | 1 failed) 13ms
+   ✓ unique > unique([1,2,2,3]) returns [1,2,3] 2ms
+   ✓ unique > unique preserves insertion order 0ms
+   ✓ unique > unique works with strings 1ms
+   ✓ chunk > chunk([1,2,3,4,5], 2) returns [[1,2],[3,4],[5]] 0ms
+   ✓ chunk > chunk handles empty arrays 0ms
+   × chunk > chunk must handle async iterables 9ms
+     → expected [] to deeply equal [ [ 1, 2 ], [ 3 ] ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/array-utils.test.ts > chunk > chunk must handle async iterables
+AssertionError: expected [] to deeply equal [ [ 1, 2 ], [ 3 ] ]
+
+- Expected
++ Received
+
+- [
+-   [
+-     1,
+-     2,
+-   ],
+-   [
+-     3,
+-   ],
+- ]
++ []
+
+ ❯ tests/array-utils.test.ts:34:20
+     32|     }
+     33|     const result = await chunk(asyncGen(), 2);
+     34|     expect(result).toEqual([[1, 2], [3]]);
+       |                    ^
+     35|   });
+     36| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Duration  515ms

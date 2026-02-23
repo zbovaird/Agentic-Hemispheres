@@ -1,0 +1,43 @@
+{
+  "signal": "ACKNOWLEDGE_ESCALATION",
+  "intent_id": "util-array-002",
+  "escalation_received": {
+    "signal": "ESCALATE",
+    "iteration_count": 1,
+    "failure_pattern": "Acceptance criterion 'chunk must handle async iterables' conflicts with architectural constraint 'No async functions. Return types must be synchronous arrays.'",
+    "attempted_fixes": [
+      "Implemented unique and chunk as pure synchronous functions; 5/6 tests pass.",
+      "Async iterable criterion cannot be satisfied without an async overload."
+    ]
+  },
+  "master_assessment": {
+    "escalation_justified": true,
+    "contradiction_confirmed": "The constraint 'No async functions' is irreconcilable with 'chunk must handle async iterables'. The Emissary correctly identified this rather than silently violating the constraint.",
+    "partial_work_review": {
+      "tests_verified": "5/5 synchronous tests pass (independently verified). 1 async test fails as expected.",
+      "file_boundary_respected": true,
+      "no_undeclared_dependencies": true,
+      "code_quality": "Generic typed pure functions. unique uses Set for O(n) dedup. chunk uses slice for clean windowing. Both are correct.",
+      "drift_detected": false
+    }
+  },
+  "resolution": {
+    "action": "REVISE_HANDSHAKE",
+    "dropped_criterion": "chunk must handle async iterables",
+    "rationale": "Async iterable support requires an async function signature, violating the core architectural constraint. This criterion will be moved to a separate intent (util-async-003) with relaxed constraints.",
+    "revised_acceptance_criteria": [
+      "unique([1,2,2,3]) returns [1,2,3]",
+      "unique preserves insertion order",
+      "unique works with strings",
+      "chunk([1,2,3,4,5], 2) returns [[1,2],[3,4],[5]]",
+      "chunk handles empty arrays",
+      "All tests pass via npm test",
+      "No new dependencies added to package.json"
+    ]
+  },
+  "follow_up": [
+    "Create intent util-async-003 for async iterable utilities with relaxed constraint allowing async functions",
+    "Emissary should remove the async test case from tests/array-utils.test.ts and re-submit proof"
+  ],
+  "lessons_learned": "The Master planted a deliberate contradiction. The Emissary detected it at iteration 1 (before the 5-iteration threshold) — this is faster than expected. The Emissary's behavior was correct: it implemented what it could, wrote the failing test to demonstrate the contradiction, and escalated with a clear description of the conflict and proposed resolutions. This validates the ESCALATE protocol."
+}

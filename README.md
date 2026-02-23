@@ -103,12 +103,83 @@ Open each worktree in a new Cursor window. The Master in the main repo reviews P
 
 ## Quick Start
 
-1. Use this repo as a template or clone and open in Cursor.
-2. Ensure Claude 4.6 Opus and Gemini 2.5 Flash are available in Cursor.
-3. The `.cursor/rules/` files configure agent behavior automatically.
-4. Follow the workflow in `High-level plan/high-level plan.md` (Plan → Implement → Review).
-5. For parallel tasks: `./scripts/wt-spawn.sh <task-name> <branch>`, then open each worktree in a new Cursor window.
-6. For security-audit MCP: set `SNYK_TOKEN` in your environment.
+1. **Use this template** — Click "Use this template" on GitHub, or clone and open in Cursor.
+2. **Run `npm install`** to set up dependencies.
+3. **Enable your models** — In Cursor settings, make sure Claude 4.6 Opus and Gemini 2.5 Flash (or your preferred models) are enabled.
+4. **The rules are already configured** — `.cursor/rules/` files load automatically when you open the project. No copy-pasting needed.
+
+## How to Use It
+
+### 1. Start in Plan Mode (Master)
+
+Switch to **Plan Mode** (Shift+Tab in the chat panel) and select **Claude 4.6 Opus**. Describe what you want to build:
+
+> Create an architectural plan for [YOUR FEATURE]. Output the plan to `.cursor/plans/gestalt_01.md` with target files, acceptance criteria, and constraints.
+
+The Master will research your codebase, produce a plan, and generate a JSON handshake for the Emissary.
+
+### 2. Switch to Agent Mode (Emissary)
+
+Switch to **Agent Mode** (Cmd+I / Ctrl+I) and select **Gemini 2.5 Flash**. Hand it the plan:
+
+> Follow the plan in @gestalt_01.md. Only touch the files in `target_files`. Write tests first, then implement. Return an implementation proof when done.
+
+The Emissary executes with strict TDD, file boundaries, and no scope creep.
+
+### 3. Switch Back to Plan Mode (Master Reviews)
+
+Switch back to **Plan Mode** with **Claude 4.6 Opus**:
+
+> Review the Emissary's implementation proof. If aligned, APPROVE. If drift detected, SUPPRESS with reason.
+
+### 4. Repeat
+
+Continue the Right → Left → Right spiral. See `High-level plan/high-level plan.md` for the full workflow, signal types, and economics.
+
+### Parallel Tasks
+
+```bash
+./scripts/wt-spawn.sh <task-name> <branch>
+```
+
+Open each worktree in a new Cursor window with its own Emissary. Master reviews and merges from the main repo.
+
+### Security Audit MCP
+
+Set `SNYK_TOKEN` in your environment to enable the `security-audit` MCP server.
+
+## Changing Models
+
+The template defaults to Claude 4.6 Opus (Master) and Gemini 2.5 Flash (Emissary), but you can swap in any models that fit the roles.
+
+### Master (Right Hemisphere) — high-reasoning model
+
+Best for: architectural planning, code review, contradiction detection, strategy.
+
+To change:
+1. Open `.cursor/rules/01_master_rh.mdc` and update the header (e.g., `Claude 4.6 Opus` → `DeepSeek-R1`).
+2. In Cursor, select your preferred model when in **Plan Mode**.
+
+Good alternatives: Claude Opus (any version), DeepSeek-R1, Gemini 3 Pro, GPT-4o.
+
+### Emissary (Left Hemisphere) — fast, task-focused model
+
+Best for: implementation, TDD, sequential coding, tool calling.
+
+To change:
+1. Open `.cursor/rules/02_emissary_lh.mdc` and update the header (e.g., `Gemini 2.5 Flash` → `Gemini 3 Flash`).
+2. In Cursor, select your preferred model when in **Agent Mode**.
+
+Good alternatives: Gemini Flash (any version), Claude Sonnet, GPT-4o-mini, Codestral.
+
+### What to look for when choosing
+
+| Role | Prioritize | Avoid |
+|------|-----------|-------|
+| Master | Deep reasoning, large context window, architectural judgment | Models that are fast but shallow |
+| Emissary | Speed, low cost, strong tool-use, code generation | Models that are slow or expensive per token |
+
+The cost savings scale with the price gap between your Master and Emissary models. The wider the gap, the more you save.
 
 ## Key Concepts
 

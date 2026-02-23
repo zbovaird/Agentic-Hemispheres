@@ -1,0 +1,36 @@
+# Agentic Hemispheres — Cursor Template
+
+This project uses a **bi-hemispheric AI orchestration** model (Master–Emissary) for Cursor. When you use this repo as a template, the AI will follow these conventions.
+
+## Architecture Overview
+
+- **Master (RH):** High-reasoning model (Claude 4.6 Opus). Use for planning, architecture, code review, and strategy. Configure in Cursor as the model for Plan Mode.
+- **Emissary (LH):** Task-focused model (Gemini 2.5 Flash). Use for implementation, TDD, and sequential coding. Configure in Cursor as the model for Agent Mode.
+- **Corpus Callosum:** Communication is limited to structured JSON handshakes and signals—never dump full context.
+
+## Project Structure
+
+- `.cursor/rules/` — Agent behavior rules (01_master_rh, 02_emissary_lh, 03_callosum, 04_security)
+- `.cursor/mcp.json` — MCP server config (stdio-only: local-filesystem, security-audit)
+- `.cursor/plans/` — Gestalt plans, handshakes, proofs, and `workspace_state.json`
+- `scripts/wt-spawn.sh` — Spawn parallel git worktrees for concurrent Emissary sessions
+- `test-runs/` — Validation artifacts and analyses
+
+## Coding Standards
+
+1. **TDD:** Write tests first, confirm failure, then implement.
+2. **File Boundary:** Only modify files listed in the Master's `target_files` for a given intent.
+3. **No Scope Creep:** Do not make "while-I'm-here" improvements outside the intent.
+4. **Data Compression:** Summarize raw outputs to ≤20 lines before sending to Master.
+5. **STDIO Only:** MCP tools run as local child processes. No remote MCP URLs unless authorized.
+
+## Handshake Protocol
+
+Master issues a JSON handshake with `intent_id`, `architectural_constraint`, `target_files`, and `acceptance_criteria`. Emissary returns an `implementation_proof` or `ESCALATE`/`SURPRISE` signal. Master reviews and issues `APPROVE` or `SUPPRESS`.
+
+## When Using This Template
+
+1. Open the repo in Cursor and ensure Claude 4.6 Opus and Gemini 2.5 Flash are available.
+2. For security-audit MCP: set `SNYK_TOKEN` in your environment.
+3. Run `scripts/wt-spawn.sh <task-name> <branch>` for parallel work, then open each worktree in a new Cursor window.
+4. Follow `High-level plan/high-level plan.md` for the Plan → Implement → Review workflow.

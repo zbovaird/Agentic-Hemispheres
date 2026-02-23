@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "description": "Bi-hemispheric AI orchestration framework for Cursor (Master-Emissary model)",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zbovaird/Agentic-Hemispheres"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

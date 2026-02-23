@@ -12,6 +12,9 @@ To prevent "context pollution," communication between agents is limited to high-
 
 - **Selective Signaling:** Only 2% of total context is shared during a hand-off. Never dump the full codebase into a hand-off message.
 - **Interhemispheric Inhibition:** The Master must review every diff. If the Emissary's output is noisy, the Master will issue a "Suppression Signal" to force a retry.
+- **Data Compression:** Summarize raw tool outputs into "Semantic Summaries" before sending to the Master. Never pass more than 20 lines of raw JSON to the Master in a single hand-off.
+  - **Emissary writes:** Action Items, Observations
+  - **Master writes:** Contextual Constraints, Strategy Shifts
 
 ## The JSON Handshake
 
@@ -55,3 +58,39 @@ All hand-offs between Master and Emissary must follow this structure:
 ```json
 { "signal": "ESCALATE", "intent_id": "feat-auth-endpoint-001", "iteration_count": 5, "failure_pattern": "Type mismatch in AuthMiddleware.validate()", "request": "Architectural guidance needed." }
 ```
+
+**SURPRISE** — Emissary's prediction deviates from actual outcome (Active Inference):
+```json
+{ "signal": "SURPRISE", "intent_id": "feat-auth-endpoint-001", "prediction": "Expected 201 response with JWT payload", "actual": "Received 500 with missing session table error", "deviation": "high" }
+```
+High deviation triggers Master re-evaluation. Low deviation (`"deviation": "low"`) is logged but does not interrupt the Emissary's autonomous flow.
+
+## Global Workspace (State Object)
+
+Instead of passing full conversation history between agents, both read from and write to a shared state file:
+
+**Location:** `.cursor/plans/workspace_state.json`
+
+```json
+{
+  "intent_id": "feat-auth-endpoint-001",
+  "phase": "implementation",
+  "master_constraints": [
+    "Must use existing AuthMiddleware pattern",
+    "No new runtime dependencies"
+  ],
+  "emissary_observations": [
+    "Session table missing from migration",
+    "AuthMiddleware.validate() expects string, receives object"
+  ],
+  "action_items": [
+    "Add migration 003_add_sessions.ts",
+    "Update validate() type signature"
+  ],
+  "prediction_log": [
+    { "step": "run-migration", "predicted": "Table created successfully", "actual": "Table created successfully", "deviation": "low" }
+  ]
+}
+```
+
+This "summary-first" broadcast reduces the input token count for every turn because agents only consume the salient state, not the raw conversation log.

@@ -1,0 +1,38 @@
+---
+description: Security governance for MCP transport and tool access.
+globs:
+alwaysApply: true
+---
+
+# Security Layer: STDIO Transport and MCP Governance
+
+All tool interactions in this architecture are constrained to local child processes. This prevents network exposure of project data and eliminates remote attack surfaces.
+
+## STDIO Mandate
+
+- All MCP tools **must** run over `stdio` transport (local child processes).
+- Reject any plan that suggests connecting to a remote MCP URL (HTTP/SSE) unless the Master has explicitly authorized it for a public research task via a Decision Gate.
+- If a new MCP server is needed, it must be added to `.cursor/mcp.json` and approved by the user before first use.
+
+## Tool Schema Isolation
+
+- The **Master (RH) never sees raw tool schemas**. This prevents "Shadow Poisoning" — where tool interface details contaminate the Master's holistic reasoning context.
+- Only the **Emissary (LH)** interacts with tool interfaces and MCP server responses.
+- The Emissary summarizes tool outputs into Semantic Summaries (per the Callosum's Data Compression rule) before relaying to the Master.
+
+## MCP Client Routing
+
+| Domain | MCP Client | Transport | Notes |
+|---|---|---|---|
+| File operations | `local-filesystem` | stdio | Scoped to `${workspaceFolder}` |
+| Security scanning | `security-audit` | stdio | Requires `SNYK_TOKEN` env var |
+
+Additional MCP clients are added to `.cursor/mcp.json` as needed. The Master assigns domains to clients in each Intent; the Emissary does not choose clients autonomously.
+
+## Worktree Security
+
+When using parallel worktrees (`scripts/wt-spawn.sh`):
+
+- Each worktree gets its **own isolated MCP client instances**. No shared state between worktree MCP processes.
+- The Master in the main repository reviews PRs from worktrees; it does not directly access worktree MCP servers.
+- Worktree branches are merged back into `main` only after Master approval.

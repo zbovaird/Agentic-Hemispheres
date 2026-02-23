@@ -20,14 +20,18 @@ This project implements a dual-agent architecture that pairs a high-reasoning "M
 ├── test-runs/                                    # Validation runs (APPROVE + ESCALATE paths)
 │   ├── 01-string-utils/                          # String utils test — 67% cost savings
 │   └── 02-boundary-violation/                    # Array utils + contradiction trap — 80% savings
+├── scripts/
+│   └── wt-spawn.sh                               # Git worktree spawner for parallel Emissaries
 ├── .cursor/
 │   ├── rules/
 │   │   ├── 01_master_rh.mdc                     # Master agent rules
 │   │   ├── 02_emissary_lh.mdc                   # Emissary agent rules
-│   │   └── 03_callosum.mdc                      # Communication protocol
+│   │   ├── 03_callosum.mdc                      # Communication protocol + Global Workspace
+│   │   └── 04_security.mdc                      # STDIO/MCP security governance
+│   ├── mcp.json                                  # MCP server configuration (local stdio)
 │   ├── hooks/
 │   │   └── grind.ts                              # Inhibitory feedback loop
-│   └── plans/                                    # Architectural Gestalt storage
+│   └── plans/                                    # Architectural Gestalt + workspace state
 └── README.md
 ```
 
@@ -36,6 +40,7 @@ This project implements a dual-agent architecture that pairs a high-reasoning "M
 1. Clone this repo and open in Cursor.
 2. The `.cursor/rules/` files will automatically configure agent behavior.
 3. Follow the workflow in `High-level plan/high-level plan.md` (Plan -> Implement -> Review).
+4. For parallel tasks, use `scripts/wt-spawn.sh <task-name> <branch>` to create isolated worktrees, then open each in a new Cursor window.
 
 ## Key Concepts
 
@@ -43,6 +48,13 @@ This project implements a dual-agent architecture that pairs a high-reasoning "M
 - **Clarification Threshold:** The Emissary self-corrects for up to 5 iterations before escalating to the Master.
 - **JSON Handshake:** Structured hand-off protocol between agents with intent, constraints, and proof of work.
 - **Spiral Formulation:** Right (plan) -> Left (implement) -> Right (review) iterative progression.
+
+## v2 Capabilities
+
+- **Global Workspace (State Object):** Agents read/write a shared `.cursor/plans/workspace_state.json` instead of passing full conversation history. Reduces token cost per turn by broadcasting only salient state.
+- **Active Inference / Predictive Processing:** The Emissary predicts outcomes before acting. Low surprise continues autonomously; high surprise triggers Master re-evaluation. Expensive Master compute is reserved for genuinely unexpected situations.
+- **STDIO Security Layer:** All MCP tools run as local child processes via stdio transport. No network exposure. Tool schemas are isolated from the Master to prevent Shadow Poisoning.
+- **Parallel Worktree Execution:** `wt-spawn.sh` creates isolated git worktrees, each with its own Cursor window and Emissary. The Master in the main repo reviews and merges PRs from each worktree.
 
 ## Validation Results
 

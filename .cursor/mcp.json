@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "local-filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${workspaceFolder}"],
+      "type": "stdio"
+    },
+    "security-audit": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-snyk"],
+      "type": "stdio",
+      "env": {
+        "SNYK_TOKEN": "${env:SNYK_TOKEN}"
+      }
+    }
+  }
+}

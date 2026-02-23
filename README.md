@@ -76,16 +76,31 @@ The signaling layer limits cross-agent traffic to high-signal metadata. It defin
 - **MCP Client Routing**: `local-filesystem` for file ops, `security-audit` (Snyk) for scanning. Add others in `.cursor/mcp.json`.
 - **Worktree Security**: Each worktree gets isolated MCP instances; Master reviews PRs from worktrees.
 
-### MCP Configuration — `.cursor/mcp.json`
+### MCP Servers — `.cursor/mcp.json`
 
-Defines which MCP servers Cursor spawns as local child processes:
+MCP (Model Context Protocol) servers give the Emissary access to tools (file ops, databases, APIs). Each server is an npm package that Cursor spawns as a **local child process** via stdio. Tools are bundled per server — you add servers, not individual tools.
 
-| Server           | Purpose          | Notes                           |
-|-----------------|------------------|---------------------------------|
-| `local-filesystem` | File operations   | Scoped to `${workspaceFolder}` |
-| `security-audit`    | Vulnerability scan | Requires `SNYK_TOKEN` env var  |
+**Included servers:**
 
-Add new servers here. The Master assigns domains to clients in each Intent.
+| Server           | Package                                   | Purpose          | Notes                           |
+|------------------|-------------------------------------------|------------------|---------------------------------|
+| `local-filesystem` | `@modelcontextprotocol/server-filesystem` | File operations  | Scoped to `${workspaceFolder}` |
+| `security-audit`   | `@modelcontextprotocol/server-snyk`      | Vulnerability scan | Requires `SNYK_TOKEN` env var  |
+
+**Adding a new server:** Edit `.cursor/mcp.json` and add an entry under `mcpServers`:
+
+```json
+"server-name": {
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-postgres"],
+  "type": "stdio",
+  "env": { "DATABASE_URL": "${env:DATABASE_URL}" }
+}
+```
+
+Browse packages on npm (`@modelcontextprotocol/server-*`) or the [MCP registry](https://github.com/modelcontextprotocol/servers). The Master assigns domains to servers in each Intent; the Emissary uses the specified server for that domain.
+
+**Security:** All servers run over stdio (local processes only — no network exposure). **Cross-server isolation** prevents data from one server from leaking into another; the Emissary does not cross-pollinate outputs between `stdio` server instances. **Tool schema isolation** keeps the Master from seeing raw tool schemas (prevents "Shadow Poisoning" of its holistic context); only the Emissary interacts with tool interfaces and summarizes results.
 
 ### Grind Hook — `.cursor/hooks/grind.ts`
 

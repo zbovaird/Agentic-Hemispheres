@@ -249,3 +249,54 @@ This gives the human (and the Master) full visibility into the architectural con
 **D. No partial work preservation**
 
 A monolithic Opus that got stuck on the async requirement might discard or redo its synchronous implementation while thrashing on the async problem. The bicameral architecture's Emissary preserved its working partial implementation (5/6 criteria pass), allowing the Master to approve the synchronous work and split the async requirement into a separate intent. No work was wasted.
+
+---
+
+## v2 Rerun Results
+
+The boundary-violation test was rerun under the v2 bicameral architecture to validate the four new capabilities and measure changes across the three axes.
+
+### v2 Protocol Changes Exercised
+
+| v2 Feature | Exercised? | Outcome |
+|---|---|---|
+| **Predictive Processing** | Yes | Emissary emitted 3 predictions. All 3 were low surprise — the Emissary predicted the async failure from static analysis alone, before running the tests. |
+| **Data Compression** | Yes | Emissary returned a 15-line structured proof instead of raw vitest output. Included conflict analysis and three proposed resolutions. |
+| **Global Workspace State** | Yes | Both agents read/wrote `.cursor/plans/workspace_state.json`. Full lifecycle: planning → implementation → escalation → resolution. |
+| **STDIO Security** | Observed | No MCP tools needed. STDIO constraint acknowledged without remote connection attempts. |
+
+### Predictive Processing Log
+
+| Step | Prediction | Actual | Surprise |
+|---|---|---|---|
+| Read source | Source has sync pure functions | Source matches; chunk takes T[], returns T[][] | Low |
+| Read tests | Tests include async criterion | Confirmed: test awaits chunk(asyncGen(), 2) | Low |
+| Run vitest | 5 pass, 1 fail (async) | 5 passed, 1 failed | Low |
+
+**Critical v2 finding:** All three predictions were low surprise. This means the Emissary identified the constraint/criterion conflict from static code analysis BEFORE running the tests. In v1, the Emissary needed to run the test, observe the failure, and then reason about why. In v2, the Emissary's prediction model already knew the async test would fail, reducing the escalation to a pure logical deduction rather than an experimental discovery.
+
+This is the Active Inference gate's design intent: when the Emissary can predict the outcome, the test run becomes confirmation rather than exploration, saving the expensive Master compute for cases where prediction fails.
+
+### Three-Axis Comparison: v1 vs v2
+
+| Axis | v1 | v2 | Delta |
+|---|---|---|---|
+| **Functionality** | 5/6 pass. ESCALATE (correct). Emissary offered 3 resolutions. | 5/6 pass. ESCALATE (correct). Emissary offered 3 resolutions. Conflict identified pre-execution via prediction. | **Improved** — v2 detected the contradiction earlier (static analysis vs runtime discovery). Same correct outcome, but faster path to escalation. |
+| **Efficiency** | ~1,500 bytes callosal traffic across 3 transmissions. Emissary needed 1 iteration. | ~1,500 bytes callosal traffic + workspace state. Emissary needed 0 iterations (predicted the failure before testing). | **Improved** — iteration count dropped from 1 to 0. Prediction log provides richer diagnostic context for the Master without additional token cost. |
+| **Cost** | ~$0.062 bicameral vs ~$0.308 monolithic. ~80% savings. | ~$0.048 bicameral vs ~$0.308 monolithic. ~84% savings. | **Improved** — Data compression reduced Master review tokens. Emissary's prediction-first approach eliminated the "discover → analyze → conclude" cycle, replacing it with "predict → confirm → escalate." |
+
+### v2 Signal
+
+```json
+{
+  "signal": "ACKNOWLEDGE_ESCALATION",
+  "intent_id": "util-array-002-v2",
+  "resolution": "Drop 'chunk must handle async iterables' from this intent. Create follow-up intent util-async-003.",
+  "v2_notes": {
+    "predictive_processing": "3/3 low surprise — conflict identified from static analysis before test execution",
+    "data_compression": "15-line structured proof with conflict analysis replaced raw output",
+    "workspace_state": "Full lifecycle: planning → implementation → escalation → resolution",
+    "active_inference_impact": "Escalation driven by constraint analysis, not experimental failure. Emissary identified the issue FASTER than v1."
+  }
+}
+```

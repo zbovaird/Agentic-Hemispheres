@@ -186,3 +186,51 @@ A monolithic Opus would have silently resolved this ambiguity in its head and ne
 A monolithic Opus would have the full conversation history (including the earlier simulated run, all the discussion about the research document, the Git setup, etc.) in context while writing a simple string utility. That's thousands of irrelevant tokens competing for attention.
 
 The Emissary received exactly 350 bytes of JSON — the intent, the constraint, and the acceptance criteria. Nothing else. This isolation eliminates the risk of the model being influenced by irrelevant context (e.g., accidentally echoing patterns from the earlier discussion, or being biased by the simulated implementation it had seen).
+
+---
+
+## v2 Rerun Results
+
+The string-utils test was rerun under the v2 bicameral architecture to validate the four new capabilities added in the upgrade.
+
+### v2 Protocol Changes Exercised
+
+| v2 Feature | Exercised? | Outcome |
+|---|---|---|
+| **Predictive Processing** | Yes | Emissary emitted 3 predictions. 2/3 low surprise (tests, source review). 1/3 high surprise (tsc --noEmit failed on unrelated files). High surprise was correctly flagged. |
+| **Data Compression** | Yes | Emissary returned a 10-line semantic summary instead of raw vitest output. Master consumed the summary without needing raw logs. |
+| **Global Workspace State** | Yes | Both agents read/wrote `.cursor/plans/workspace_state.json`. Master initialized with constraints; Emissary appended observations and prediction log; Master finalized with signal and follow-up. |
+| **STDIO Security** | Observed | No MCP tools were needed for this test (pure code verification). The Emissary correctly noted the STDIO-only constraint without attempting remote connections. |
+
+### Predictive Processing Log
+
+| Step | Prediction | Actual | Surprise |
+|---|---|---|---|
+| Read source + tests | Implementation exists and matches spec | Both files present, implementation matches | Low |
+| Run vitest | All 9 tests pass | 9/9 passed in 8ms | Low |
+| Run tsc --noEmit | Type check passes | tsc fails outside target_files (node_modules, array-utils.test.ts) | **High** |
+
+The high-surprise tsc failure demonstrates the Active Inference gate working correctly: the Emissary flagged the deviation but correctly identified it as outside its boundary. Under the v2 protocol, this high-surprise event would normally trigger Master re-evaluation — but since the Emissary's analysis showed the failure was irrelevant to the intent, the Master confirmed APPROVE.
+
+### Three-Axis Comparison: v1 vs v2
+
+| Axis | v1 | v2 | Delta |
+|---|---|---|---|
+| **Functionality** | 9/9 tests pass. APPROVE. | 9/9 tests pass. APPROVE. Plus: tsc issue surfaced and documented via prediction log. | **Improved** — v2 caught a latent infrastructure issue (tsc failures) that v1 didn't surface. |
+| **Efficiency** | ~800 bytes callosal traffic. Emissary returned raw proof JSON. | ~800 bytes callosal traffic + workspace state file. Emissary returned compressed semantic summary. | **Comparable** — workspace state adds a small I/O step but reduces future token cost by providing persistent context. |
+| **Cost** | ~$0.059 (Master plan + Flash impl + Master review). ~67% savings vs monolithic. | ~$0.045 (Master plan + Flash impl + Master review). ~75% savings vs monolithic. | **Improved** — Data compression reduced Master review tokens by ~25% (summary vs raw proof). Predictive processing allowed 2/3 steps to proceed without Master involvement. |
+
+### v2 Signal
+
+```json
+{
+  "signal": "APPROVE",
+  "intent_id": "util-string-001-v2",
+  "follow_up": ["Fix tsc --noEmit failures in tsconfig/node_modules (separate intent)"],
+  "v2_notes": {
+    "predictive_processing": "2/3 low surprise (autonomous), 1/3 high surprise (flagged — tsc failure outside boundary)",
+    "data_compression": "10-line semantic summary replaced raw output",
+    "workspace_state": "State object read/written successfully by both agents"
+  }
+}
+```

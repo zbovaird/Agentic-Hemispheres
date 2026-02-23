@@ -125,29 +125,31 @@ Open each worktree in a new Cursor window. The Master in the main repo reviews P
 
 ## How to Use It
 
-### 1. Start in Plan Mode (Master)
+The template configures Plan Mode as the Master (Opus) and Agent Mode as the Emissary (Flash). The rules load automatically—when you open Plan Mode, the Master governs; when you open Agent Mode, the Emissary executes. The handoff flows via the structured protocol (gestalt → handshake → proof). Cursor requires selecting the mode for each phase; the workspace ensures the correct agent and model apply in that mode.
 
-Switch to **Plan Mode** (Shift+Tab in the chat panel) and select **Claude 4.6 Opus**. Describe what you want to build:
+### Phase 1: Master Plans
+
+In **Plan Mode** (Shift+Tab), with **Claude 4.6 Opus** selected, describe what you want:
 
 > Create an architectural plan for [YOUR FEATURE]. Output the plan to `.cursor/plans/gestalt_01.md` with target files, acceptance criteria, and constraints.
 
-The Master will research your codebase, produce a plan, and generate a JSON handshake for the Emissary.
+The Master researches the codebase, produces a plan, and generates a JSON handshake for the Emissary.
 
-### 2. Switch to Agent Mode (Emissary)
+### Phase 2: Emissary Implements
 
-Switch to **Agent Mode** (Cmd+I / Ctrl+I) and select **Gemini 2.5 Flash**. Hand it the plan:
+In **Agent Mode** (Cmd+I / Ctrl+I), with **Gemini 2.5 Flash** selected, hand it the plan:
 
 > Follow the plan in @gestalt_01.md. Only touch the files in `target_files`. Write tests first, then implement. Return an implementation proof when done.
 
 The Emissary executes with strict TDD, file boundaries, and no scope creep.
 
-### 3. Switch Back to Plan Mode (Master Reviews)
+### Phase 3: Master Reviews
 
-Switch back to **Plan Mode** with **Claude 4.6 Opus**:
+Back in **Plan Mode** with **Claude 4.6 Opus**:
 
 > Review the Emissary's implementation proof. If aligned, APPROVE. If drift detected, SUPPRESS with reason.
 
-### 4. Repeat
+### Phase 4: Repeat
 
 Continue the Right → Left → Right spiral. See `High-level plan/high-level plan.md` for the full workflow, signal types, and economics.
 

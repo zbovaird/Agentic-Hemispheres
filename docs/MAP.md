@@ -41,13 +41,8 @@ High-level directory structure with purpose annotations. Read this before explor
 │   ├── record.ts                # CLI entry point (called by telemetry.sh)
 │   ├── index.ts                 # Barrel export
 │   └── __tests__/               # Formula and guard tests
-├── src/                         # Application source code
+├── src/                         # Application source code (your project goes here)
 ├── tests/                       # Test files (mirrors src/ structure)
-├── test-runs/                   # Validation artifacts from bicameral tests
-│   ├── 01-string-utils/         # APPROVE path test (75% cost savings)
-│   └── 02-boundary-violation/   # ESCALATE path test (84% cost savings)
-├── High-level plan/
-│   └── high-level plan.md       # Step-by-step workflow guide
 ├── telemetry.html               # Agent performance dashboard (serve locally)
 ├── .cursorrules                 # Template guidance for Cursor
 ├── package.json                 # Node.js dependencies

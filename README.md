@@ -41,11 +41,11 @@ Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope
 │   ├── wt-guard.sh                               # Baseline tagging + rollback for worktrees
 │   ├── telemetry.sh                              # MVP telemetry: test/lint/state metrics
 │   └── prune-context.sh                          # Prune action journal after intent completion
-├── High-level plan/
-│   └── high-level plan.md                        # Implementation guide
-├── test-runs/                                    # Validation runs (APPROVE + ESCALATE paths)
-│   ├── 01-string-utils/                          # String utils — 75% cost savings (v2)
-│   └── 02-boundary-violation/                    # Array utils + contradiction trap — 84% savings (v2)
+├── metrics/                                      # Agentic metrics framework (convergence, drift, churn)
+│   ├── compute.ts                                # All derived metric formulas
+│   ├── guards.ts                                 # Threshold-based flags and control signals
+│   ├── config.ts                                 # Tunable thresholds
+│   └── __tests__/                                # Formula and guard tests
 ├── telemetry.html                                 # Agent performance dashboard (serve locally)
 ├── .cursorrules                                  # Cursor template guidance
 └── README.md
@@ -187,9 +187,10 @@ A real-time 8-panel dashboard for monitoring agent performance, detecting drift,
 3. **Test Pass/Fail** — bar chart over time
 4. **Drift Detection** — composite health score (0-100) from iteration trend, surprise rate, suppress frequency
 5. **Cost Per Intent** — bar chart with running average (manual cost entry via telemetry.sh)
-6. **Prediction Accuracy** — stacked bars of low vs high surprise per intent
-7. **Summary Debt** — live list of stale/missing summaries from workspace state
-8. **Workspace State** — live card showing current intent, phase, model tier, signal, verifier verdict
+6. **Convergence & Stability** — per-iteration metric bars (convergence, progress, stability, efficiency, drift, churn) from `metrics.jsonl`
+7. **Guard Flags** — active warnings and critical flags with severity badges
+8. **Summary Debt** — live list of stale/missing summaries from workspace state
+9. **Workspace State** — live card showing current intent, phase, model tier, signal, verifier verdict
 
 **Model Comparison Mode:** Select "All" in the Model Combo filter to see an aggregate table and radar chart comparing each Master+Emissary pairing across cost, speed, quality, accuracy, and efficiency.
 
@@ -252,7 +253,7 @@ The Master reviews both the implementer's proof and the verifier's report:
 
 ### Phase 5: Repeat
 
-Continue the Right → Left → Right spiral. The Global Workspace at `.cursor/plans/workspace_state.json` carries state between cycles. See `High-level plan/high-level plan.md` for the full workflow, signal types, and economics.
+Continue the Right → Left → Right spiral. The Global Workspace at `.cursor/plans/workspace_state.json` carries state between cycles.
 
 ### Parallel Tasks
 
@@ -325,19 +326,20 @@ Run the same tasks with different `models.json` configurations. Each telemetry e
 - **Summary-First Navigation:** Layered file access (Map → README → Sidecar) to reduce exploration tax. Summary debt tracked by verifier.
 - **Worktree Guard:** Baseline tagging and rollback via `wt-guard.sh`.
 - **Agent Telemetry:** Rich metrics (model config, signals, predictions, drift, cost) logged to `telemetry.jsonl`.
-- **Performance Dashboard:** `telemetry.html` — 8-panel real-time dashboard with drift detection, model comparison mode (radar + table), and dark/light theme.
+- **Metrics Framework:** Per-iteration derived metrics (convergence, drift, churn, stability, efficiency, escalation) with configurable thresholds and guard flags for self-correction. All formulas centralized in `metrics/compute.ts`.
+- **Performance Dashboard:** `telemetry.html` — 9-panel real-time dashboard with convergence bars, guard flags, drift detection, model comparison mode (radar + table), and dark/light theme.
 - **Context Pruner:** Action journal summarized and truncated after intent completion to stay under token budget.
 
 ## Validation Results
 
-Two test runs validated the bicameral architecture:
+The bicameral architecture was validated with two test scenarios during development:
 
-| Test                 | Path      | Cost Savings | Key Behaviors                                                        |
-|----------------------|-----------|--------------|----------------------------------------------------------------------|
-| 01-string-utils      | APPROVE   | ~75% (v2)    | TDD, file boundary, 2% signaling, predictive processing, data compression |
-| 02-boundary-violation| ESCALATE  | ~84% (v2)    | Constraint vs criterion conflict detected; immediate escalation; partial work preserved |
+| Scenario             | Signal Path | Cost Savings | Key Behaviors |
+|----------------------|-------------|--------------|---------------|
+| String utilities     | APPROVE     | ~75%         | TDD, file boundary, 2% signaling, predictive processing, data compression |
+| Boundary violation   | ESCALATE    | ~84%         | Constraint vs criterion conflict detected; immediate escalation; partial work preserved |
 
-See `test-runs/*/ANALYSIS.md` for full analysis and v1 vs v2 three-axis comparison (functionality, efficiency, cost).
+Cost savings are measured against a monolithic single-model (Opus-only) baseline. Savings scale with the price gap between your Master and Implementer models.
 
 ## Requirements
 

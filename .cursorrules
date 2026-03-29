@@ -24,7 +24,7 @@ All model assignments live in `.cursor/models.json`. Read this file at the start
 - `scripts/wt-guard.sh` — Baseline tagging and rollback for worktrees
 - `scripts/telemetry.sh` — MVP telemetry collection
 - `scripts/prune-context.sh` — Action journal pruner
-- `test-runs/` — Validation artifacts and analyses
+- `metrics/` — Agentic metrics framework (convergence, drift, churn, guards)
 
 ## Coding Standards
 
@@ -56,4 +56,3 @@ The Master dispatches two subagents sequentially. Subagents do NOT nest.
 4. Describe your task to the Master. It plans, dispatches the Emissary subagent, and reviews the result. No manual mode switching needed.
 4. For security-audit MCP: set `SNYK_TOKEN` in your environment.
 5. Run `scripts/wt-spawn.sh <task-name> <branch>` for parallel work, then open each worktree in a new Cursor window.
-6. See `High-level plan/high-level plan.md` for the full workflow and signal types.

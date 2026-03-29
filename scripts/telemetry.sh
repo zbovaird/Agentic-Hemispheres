@@ -129,3 +129,10 @@ printf '{"timestamp":"%s","intent_id":"%s","model_config":{"master":"%s","implem
 
 echo "Telemetry recorded to $TELEMETRY_FILE"
 echo "  intent=$INTENT_ID signal=$signal model=$model_implementer iterations=$iterations cost=$COST_USD"
+
+# --- Also record to new metrics framework ---
+if command -v npx >/dev/null 2>&1 && [ -f "metrics/record.ts" ]; then
+  COST_ARG=""
+  if [ "$COST_USD" != "null" ]; then COST_ARG="--cost=$COST_USD"; fi
+  npx tsx metrics/record.ts --run="$INTENT_ID" --goal="$INTENT_ID" $COST_ARG 2>/dev/null || echo "  (metrics record skipped — tsx not available)"
+fi

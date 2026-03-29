@@ -310,6 +310,49 @@
     font-size: 13px;
   }
 
+  /* --- Guard flags --- */
+  .flag-list { list-style: none; }
+  .flag-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .flag-item:last-child { border-bottom: none; }
+  .flag-severity {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .flag-severity.critical { background: rgba(248,81,73,0.2); color: var(--red); }
+  .flag-severity.warning { background: rgba(210,153,34,0.2); color: var(--amber); }
+  .flag-severity.info { background: rgba(88,166,255,0.2); color: var(--accent); }
+  .flag-message { color: var(--text-secondary); font-size: 12px; }
+
+  /* --- Metric bars --- */
+  .metric-bars { display: flex; flex-direction: column; gap: 12px; }
+  .metric-bar-row {
+    display: flex; align-items: center; gap: 10px; font-size: 13px;
+  }
+  .metric-bar-label {
+    width: 100px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: right; flex-shrink: 0;
+  }
+  .metric-bar-track {
+    flex: 1; height: 14px; background: var(--gauge-bg); border-radius: 7px; overflow: hidden; position: relative;
+  }
+  .metric-bar-fill {
+    height: 100%; border-radius: 7px; transition: width 0.4s ease;
+  }
+  .metric-bar-value {
+    width: 50px; font-family: var(--font-mono); font-size: 12px; font-weight: 600; flex-shrink: 0;
+  }
+
   /* --- Comparison mode --- */
   .compare-section {
     grid-column: 1 / -1;
@@ -455,15 +498,29 @@
     <div class="chart-wrap"><canvas id="chartCost"></canvas></div>
   </div>
 
-  <!-- Panel 6: Prediction Accuracy -->
-  <div class="panel" id="panelPredictions">
+  <!-- Panel 6: Convergence & Stability (from metrics.jsonl) -->
+  <div class="panel" id="panelConvergence">
     <div class="panel-header">
-      <span class="panel-title">Prediction Accuracy</span>
+      <span class="panel-title">Convergence & Stability</span>
+      <span class="panel-badge badge-blue" id="actionBadge">--</span>
     </div>
-    <div class="chart-wrap"><canvas id="chartPredictions"></canvas></div>
+    <div class="metric-bars" id="metricBars">
+      <div class="no-data">No metrics data. Run <code>npm run metrics:record -- --run=&lt;id&gt; --goal=&lt;id&gt;</code></div>
+    </div>
   </div>
 
-  <!-- Panel 7: Summary Debt -->
+  <!-- Panel 7: Guard Flags -->
+  <div class="panel" id="panelGuards">
+    <div class="panel-header">
+      <span class="panel-title">Guard Flags</span>
+      <span class="panel-badge badge-green" id="guardBadge">0</span>
+    </div>
+    <ul class="flag-list" id="flagList">
+      <div class="no-data">No active flags</div>
+    </ul>
+  </div>
+
+  <!-- Panel 8: Summary Debt -->
   <div class="panel" id="panelDebt">
     <div class="panel-header">
       <span class="panel-title">Summary Debt</span>
@@ -474,7 +531,7 @@
     </ul>
   </div>
 
-  <!-- Panel 8: Live Workspace State -->
+  <!-- Panel 9: Live Workspace State -->
   <div class="panel" id="panelState">
     <div class="panel-header">
       <span class="panel-title">Workspace State</span>
@@ -509,7 +566,8 @@
 
 const DATA_PATHS = {
   telemetry: '.cursor/plans/telemetry.jsonl',
-  workspace: '.cursor/plans/workspace_state.json'
+  workspace: '.cursor/plans/workspace_state.json',
+  metrics: '.cursor/plans/metrics.jsonl'
 };
 
 const SIGNAL_COLORS = {
@@ -522,6 +580,7 @@ const SIGNAL_COLORS = {
 };
 
 let telemetryData = [];
+let metricsData = [];
 let workspaceState = {};
 let paused = false;
 let selectedIntent = '__all__';
@@ -531,7 +590,7 @@ let lastFetchTime = 0;
 let lastDataHash = '';
 
 // Chart instances
-let chartSignals, chartTests, chartCost, chartPredictions, chartRadar, chartCompareBar;
+let chartSignals, chartTests, chartCost, chartConvergence, chartRadar, chartCompareBar;
 
 // ---- Data fetching ----
 
@@ -554,12 +613,13 @@ async function fetchJSONL(path) {
 async function refreshData() {
   if (paused) return;
   try {
-    const [tData, wState] = await Promise.all([
+    const [tData, wState, mData] = await Promise.all([
       fetchJSONL(DATA_PATHS.telemetry),
-      fetchJSON(DATA_PATHS.workspace)
+      fetchJSON(DATA_PATHS.workspace),
+      fetchJSONL(DATA_PATHS.metrics)
     ]);
 
-    const newHash = JSON.stringify(tData) + JSON.stringify(wState);
+    const newHash = JSON.stringify(tData) + JSON.stringify(wState) + JSON.stringify(mData);
     lastFetchTime = Date.now();
     updateStatusDot('fresh');
     document.getElementById('lastRefresh').textContent =
@@ -570,6 +630,7 @@ async function refreshData() {
 
     if (tData) telemetryData = tData;
     if (wState) workspaceState = wState;
+    if (mData) metricsData = mData;
     populateFilters();
     renderAll();
   } catch (e) {
@@ -637,7 +698,8 @@ function renderAll() {
   renderTests(data);
   renderDrift(data);
   renderCost(data);
-  renderPredictions(data);
+  renderConvergence();
+  renderGuards();
   renderDebt();
   renderState();
   renderComparison();
@@ -832,32 +894,91 @@ function renderCost(data) {
   });
 }
 
-// Panel 6: Predictions
-function renderPredictions(data) {
-  const ctx = document.getElementById('chartPredictions').getContext('2d');
-  const labels = data.map(d => shortLabel(d));
-  const low = data.map(d => d.predictions?.low_surprise || 0);
-  const high = data.map(d => d.predictions?.high_surprise || 0);
+// Panel 6: Convergence & Stability (from metrics.jsonl)
+function renderConvergence() {
+  const container = document.getElementById('metricBars');
+  const badge = document.getElementById('actionBadge');
 
-  if (chartPredictions) chartPredictions.destroy();
-  chartPredictions = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Low Surprise', data: low, backgroundColor: 'rgba(63,185,80,0.7)', borderRadius: 4 },
-        { label: 'High Surprise', data: high, backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 4 }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        x: { stacked: true, ticks: { color: getCSS('--text-muted'), font: { size: 10 } }, grid: { display: false } },
-        y: { stacked: true, beginAtZero: true, ticks: { color: getCSS('--text-muted') }, grid: { color: getCSS('--border') } }
-      },
-      plugins: { legend: { labels: { color: getCSS('--text-secondary'), font: { size: 11 } } } }
-    }
-  });
+  if (!metricsData.length) {
+    container.innerHTML = '<div class="no-data">No metrics data. Run <code>npm run metrics:record -- --run=&lt;id&gt; --goal=&lt;id&gt;</code></div>';
+    badge.textContent = '--';
+    return;
+  }
+
+  const latest = metricsData[metricsData.length - 1];
+  const d = latest.derived || {};
+
+  const action = latest.flags?.length > 0
+    ? (latest.flags.find(f => f.severity === 'critical') ? 'escalate' : 're_summary')
+    : 'continue';
+
+  badge.textContent = action;
+  badge.className = 'panel-badge ' + (action === 'continue' ? 'badge-green' : action === 'escalate' || action === 'stop' ? 'badge-red' : 'badge-amber');
+
+  const metrics = [
+    { label: 'Convergence', value: d.convergence_score ?? 0, max: 100, color: barColor(d.convergence_score ?? 0, 40, 70) },
+    { label: 'Progress', value: (d.validated_progress_delta ?? 0) * 100, max: 100, color: barColor((d.validated_progress_delta ?? 0) * 100, 30, 60) },
+    { label: 'Stability', value: d.stability_score ?? 0, max: 100, color: barColor(d.stability_score ?? 0, 50, 80) },
+    { label: 'Efficiency', value: d.efficiency_score ?? 0, max: 100, color: barColor(d.efficiency_score ?? 0, 30, 60) },
+    { label: 'Drift', value: (d.drift_score ?? 0) * 100, max: 100, color: barColorInverse((d.drift_score ?? 0) * 100, 30, 60) },
+    { label: 'Churn', value: (d.churn_ratio ?? 0) * 100, max: 100, color: barColorInverse((d.churn_ratio ?? 0) * 100, 40, 60) },
+  ];
+
+  container.innerHTML = metrics.map(m => {
+    const pct = Math.min(100, Math.max(0, (m.value / m.max) * 100));
+    return `<div class="metric-bar-row">
+      <span class="metric-bar-label">${m.label}</span>
+      <div class="metric-bar-track">
+        <div class="metric-bar-fill" style="width:${pct}%;background:${m.color}"></div>
+      </div>
+      <span class="metric-bar-value" style="color:${m.color}">${m.value.toFixed(0)}</span>
+    </div>`;
+  }).join('');
+}
+
+function barColor(value, lowThresh, highThresh) {
+  if (value >= highThresh) return 'var(--green)';
+  if (value >= lowThresh) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function barColorInverse(value, lowThresh, highThresh) {
+  if (value <= lowThresh) return 'var(--green)';
+  if (value <= highThresh) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+// Panel 7: Guard Flags
+function renderGuards() {
+  const list = document.getElementById('flagList');
+  const badge = document.getElementById('guardBadge');
+
+  if (!metricsData.length) {
+    badge.textContent = '0';
+    badge.className = 'panel-badge badge-green';
+    list.innerHTML = '<div class="no-data">No active flags</div>';
+    return;
+  }
+
+  const latest = metricsData[metricsData.length - 1];
+  const flags = latest.flags || [];
+
+  badge.textContent = flags.length;
+  if (flags.length === 0) {
+    badge.className = 'panel-badge badge-green';
+    list.innerHTML = '<div class="no-data">All clear — no flags raised</div>';
+    return;
+  }
+
+  const hasCritical = flags.some(f => f.severity === 'critical');
+  badge.className = 'panel-badge ' + (hasCritical ? 'badge-red' : 'badge-amber');
+
+  list.innerHTML = flags.map(f =>
+    `<li class="flag-item">
+      <span class="flag-severity ${f.severity}">${f.severity}</span>
+      <span class="flag-message">${escapeHtml(f.message)}</span>
+    </li>`
+  ).join('');
 }
 
 // Panel 7: Summary Debt
@@ -933,7 +1054,14 @@ function renderComparison() {
   const comboKeys = Object.keys(combos);
   document.getElementById('compareBadge').textContent = comboKeys.length + ' combo' + (comboKeys.length !== 1 ? 's' : '');
 
-  // Build table
+  // Build metrics from telemetry + enriched from metrics.jsonl
+  const metricsIndex = {};
+  metricsData.forEach(m => {
+    const key = comboKey(m.record?.model_config);
+    if (!metricsIndex[key]) metricsIndex[key] = [];
+    metricsIndex[key].push(m);
+  });
+
   const metrics = comboKeys.map(key => {
     const entries = combos[key];
     const n = entries.length;
@@ -945,30 +1073,49 @@ function renderComparison() {
     const totalPreds = entries.reduce((s, e) => s + (e.predictions?.total || 0), 0);
     const highSurp = entries.reduce((s, e) => s + (e.predictions?.high_surprise || 0), 0);
     const surpriseRate = totalPreds > 0 ? (highSurp / totalPreds) * 100 : 0;
-    const avgCallosal = entries.reduce((s, e) => s + (e.callosal_bytes || 0), 0) / n;
+
+    const mEntries = metricsIndex[key] || [];
+    const avgConvergence = mEntries.length
+      ? mEntries.reduce((s, m) => s + (m.derived?.convergence_score || 0), 0) / mEntries.length : null;
+    const avgStability = mEntries.length
+      ? mEntries.reduce((s, m) => s + (m.derived?.stability_score || 0), 0) / mEntries.length : null;
+    const avgDrift = mEntries.length
+      ? mEntries.reduce((s, m) => s + (m.derived?.drift_score || 0), 0) / mEntries.length : null;
+    const avgChurn = mEntries.length
+      ? mEntries.reduce((s, m) => s + (m.derived?.churn_ratio || 0), 0) / mEntries.length : null;
 
     return {
-      key, n, avgCost, avgIter, approveRate, testPassRate, surpriseRate, avgCallosal
+      key, n, avgCost, avgIter, approveRate, testPassRate, surpriseRate,
+      avgConvergence, avgStability, avgDrift, avgChurn
     };
   });
 
-  // Table HTML
+  const hasMetrics = metricsData.length > 0;
+
   let tableHtml = `<table class="compare-table">
     <thead><tr>
-      <th>Combo</th><th>Runs</th><th>Avg Cost</th><th>Avg Iter</th>
-      <th>Approve %</th><th>Test Pass %</th><th>High Surprise %</th><th>Avg Callosal</th>
+      <th>Combo</th><th>Runs</th><th>Avg Cost</th><th>Approve %</th><th>Test Pass %</th>
+      ${hasMetrics ? '<th>Convergence</th><th>Stability</th><th>Drift</th><th>Churn</th>' : '<th>Avg Iter</th><th>High Surprise %</th>'}
     </tr></thead><tbody>`;
   metrics.forEach(m => {
     tableHtml += `<tr>
       <td>${escapeHtml(m.key)}</td>
       <td>${m.n}</td>
       <td>${m.avgCost !== null ? '$' + m.avgCost.toFixed(3) : '--'}</td>
-      <td>${m.avgIter.toFixed(1)}</td>
       <td>${m.approveRate.toFixed(0)}%</td>
-      <td>${m.testPassRate.toFixed(0)}%</td>
-      <td>${m.surpriseRate.toFixed(0)}%</td>
-      <td>${(m.avgCallosal / 1024).toFixed(1)} KB</td>
-    </tr>`;
+      <td>${m.testPassRate.toFixed(0)}%</td>`;
+    if (hasMetrics) {
+      tableHtml += `
+      <td>${m.avgConvergence !== null ? m.avgConvergence.toFixed(0) : '--'}</td>
+      <td>${m.avgStability !== null ? m.avgStability.toFixed(0) : '--'}</td>
+      <td>${m.avgDrift !== null ? (m.avgDrift * 100).toFixed(0) + '%' : '--'}</td>
+      <td>${m.avgChurn !== null ? (m.avgChurn * 100).toFixed(0) + '%' : '--'}</td>`;
+    } else {
+      tableHtml += `
+      <td>${m.avgIter.toFixed(1)}</td>
+      <td>${m.surpriseRate.toFixed(0)}%</td>`;
+    }
+    tableHtml += '</tr>';
   });
   tableHtml += '</tbody></table>';
   document.getElementById('compareTableWrap').innerHTML = tableHtml;
@@ -979,19 +1126,31 @@ function renderComparison() {
 
   const radarColors = ['rgba(88,166,255,0.7)', 'rgba(63,185,80,0.7)', 'rgba(210,153,34,0.7)', 'rgba(188,140,255,0.7)', 'rgba(248,81,73,0.7)'];
 
+  const radarLabels = hasMetrics
+    ? ['Convergence', 'Stability', 'Scope Focus', 'Low Churn', 'Economy']
+    : ['Quality', 'Speed', 'Accuracy', 'Efficiency', 'Economy'];
+
   chartRadar = new Chart(radarCtx, {
     type: 'radar',
     data: {
-      labels: ['Quality', 'Speed', 'Accuracy', 'Efficiency', 'Economy'],
+      labels: radarLabels,
       datasets: metrics.map((m, i) => ({
         label: m.key,
-        data: [
-          m.approveRate,
-          Math.max(0, 100 - m.avgIter * 20),
-          Math.max(0, 100 - m.surpriseRate),
-          Math.max(0, 100 - (m.avgCallosal / 50)),
-          m.avgCost !== null ? Math.max(0, 100 - m.avgCost * 500) : 50
-        ],
+        data: hasMetrics
+          ? [
+              m.avgConvergence ?? 50,
+              m.avgStability ?? 50,
+              m.avgDrift !== null ? Math.max(0, 100 - m.avgDrift * 100) : 50,
+              m.avgChurn !== null ? Math.max(0, 100 - m.avgChurn * 100) : 50,
+              m.avgCost !== null ? Math.max(0, 100 - m.avgCost * 500) : 50
+            ]
+          : [
+              m.approveRate,
+              Math.max(0, 100 - m.avgIter * 20),
+              Math.max(0, 100 - m.surpriseRate),
+              50,
+              m.avgCost !== null ? Math.max(0, 100 - m.avgCost * 500) : 50
+            ],
         borderColor: radarColors[i % radarColors.length],
         backgroundColor: radarColors[i % radarColors.length].replace('0.7', '0.15'),
         pointBackgroundColor: radarColors[i % radarColors.length],

@@ -17,6 +17,7 @@ Thumbs.db
 # Runtime telemetry (regenerated per session)
 .cursor/plans/telemetry.jsonl
 .cursor/plans/action_journal.jsonl
+.cursor/plans/metrics.jsonl
 .cursor/plans/archive/
 
 # Logs

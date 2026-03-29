@@ -31,6 +31,16 @@ High-level directory structure with purpose annotations. Read this before explor
 │   ├── wt-guard.sh              # Baseline tagging + rollback for worktrees
 │   ├── telemetry.sh             # MVP telemetry: test/lint/state metrics
 │   └── prune-context.sh         # Prune action journal after intent completion
+├── metrics/                     # Agentic metrics framework
+│   ├── types.ts                 # IterationRecord, DerivedMetrics, GuardFlag types
+│   ├── config.ts                # Centralized tunable thresholds
+│   ├── store.ts                 # JSONL append/read/query
+│   ├── collect.ts               # Raw signal collection (git, tests, workspace)
+│   ├── compute.ts               # ALL derived metric formulas (single module)
+│   ├── guards.ts                # Threshold-based flags and control signals
+│   ├── record.ts                # CLI entry point (called by telemetry.sh)
+│   ├── index.ts                 # Barrel export
+│   └── __tests__/               # Formula and guard tests
 ├── src/                         # Application source code
 ├── tests/                       # Test files (mirrors src/ structure)
 ├── test-runs/                   # Validation artifacts from bicameral tests
@@ -53,3 +63,5 @@ High-level directory structure with purpose annotations. Read this before explor
 - **Verifier** reads the proof + handshake, runs tests, checks `docs/summaries/` for debt.
 - **workspace_state.json** is the shared blackboard -- both agents read/write it.
 - **action_journal.jsonl** accumulates observations during an intent; pruned after completion.
+- **metrics/** computes derived signals (convergence, drift, churn, stability) from external data. Guards emit flags the Master reads for self-correction.
+- **metrics.jsonl** stores per-iteration scored records; the dashboard reads it alongside telemetry.jsonl.

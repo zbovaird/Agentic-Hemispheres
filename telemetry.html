@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Performance Dashboard — Agentic Hemispheres</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --bg-primary: #0d1117;
+    --bg-card: #161b22;
+    --bg-card-hover: #1c2333;
+    --border: #30363d;
+    --text-primary: #c9d1d9;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --amber: #d29922;
+    --purple: #bc8cff;
+    --blue: #58a6ff;
+    --gauge-bg: #21262d;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  [data-theme="light"] {
+    --bg-primary: #f6f8fa;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f3f6;
+    --border: #d0d7de;
+    --text-primary: #1f2328;
+    --text-secondary: #656d76;
+    --text-muted: #8c959f;
+    --accent: #0969da;
+    --green: #1a7f37;
+    --red: #cf222e;
+    --amber: #9a6700;
+    --purple: #8250df;
+    --blue: #0969da;
+    --gauge-bg: #eaeef2;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  /* --- Top Bar --- */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 24px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .top-bar h1 {
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin-right: auto;
+  }
+
+  .top-bar h1 span { color: var(--text-muted); font-weight: 400; }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    margin-right: 4px;
+    transition: background 0.3s;
+  }
+  .status-dot.stale { background: var(--amber); }
+  .status-dot.dead { background: var(--red); }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  select, button {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+
+  button:hover { background: var(--bg-card-hover); }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .last-refresh { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  /* --- Grid --- */
+  .dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    min-height: 200px;
+    position: relative;
+  }
+
+  .panel.full-width { grid-column: 1 / -1; }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+  }
+
+  .panel-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .badge-green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .badge-red { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+  .badge-amber { background: rgba(210, 153, 34, 0.15); color: var(--amber); }
+  .badge-blue { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+
+  /* --- Timeline --- */
+  .timeline-container { overflow-x: auto; padding: 8px 0; }
+
+  .timeline-track {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 60px;
+    padding: 8px 0;
+  }
+
+  .timeline-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    min-width: 90px;
+  }
+
+  .timeline-node:hover { background: var(--bg-card-hover); }
+  .timeline-node.selected { border-color: var(--accent); background: var(--bg-card-hover); }
+
+  .timeline-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .timeline-label {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .timeline-time {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .timeline-connector {
+    width: 24px; height: 2px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* --- Gauge --- */
+  .gauge-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .gauge-svg { width: 160px; height: 100px; }
+
+  .gauge-label {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+
+  .gauge-sublabel {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sparklines {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .sparkline-item {
+    flex: 1;
+    text-align: center;
+  }
+
+  .sparkline-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .sparkline-value {
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  /* --- State card --- */
+  .state-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    font-size: 13px;
+  }
+
+  .state-key {
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .state-value {
+    color: var(--text-primary);
+    word-break: break-word;
+  }
+
+  /* --- Debt list --- */
+  .debt-list { list-style: none; }
+
+  .debt-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .debt-item:last-child { border-bottom: none; }
+
+  .debt-file {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .debt-reason {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* --- Comparison mode --- */
+  .compare-section {
+    grid-column: 1 / -1;
+    display: none;
+  }
+
+  .compare-section.visible { display: block; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .compare-table th, .compare-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .compare-table td { font-family: var(--font-mono); font-size: 12px; }
+
+  .compare-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 1200px) {
+    .dashboard { grid-template-columns: 1fr; }
+    .compare-charts { grid-template-columns: 1fr; }
+  }
+
+  /* Chart canvas sizing */
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+  .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+</style>
+</head>
+<body>
+
+<!-- ========== TOP BAR ========== -->
+<div class="top-bar">
+  <h1>Agent Performance <span>/ Agentic Hemispheres</span></h1>
+
+  <div class="control-group">
+    <span class="status-dot" id="statusDot"></span>
+    <span class="last-refresh" id="lastRefresh">--</span>
+  </div>
+
+  <div class="control-group">
+    <label for="intentFilter">Intent:</label>
+    <select id="intentFilter"><option value="__all__">All</option></select>
+  </div>
+
+  <div class="control-group">
+    <label for="modelFilter">Model Combo:</label>
+    <select id="modelFilter"><option value="__all__">All (compare)</option></select>
+  </div>
+
+  <button id="pauseBtn" title="Pause / resume auto-refresh">Pause</button>
+  <button id="themeBtn" title="Toggle dark / light">Light</button>
+</div>
+
+<!-- ========== DASHBOARD GRID ========== -->
+<div class="dashboard">
+
+  <!-- Panel 1: Intent Timeline -->
+  <div class="panel full-width" id="panelTimeline">
+    <div class="panel-header">
+      <span class="panel-title">Intent Timeline</span>
+      <span class="panel-badge badge-blue" id="intentCount">0 intents</span>
+    </div>
+    <div class="timeline-container">
+      <div class="timeline-track" id="timelineTrack">
+        <div class="no-data">No telemetry data yet. Run <code>./scripts/telemetry.sh &lt;intent_id&gt;</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 2: Signal Distribution -->
+  <div class="panel" id="panelSignals">
+    <div class="panel-header">
+      <span class="panel-title">Signal Distribution</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chartSignals"></canvas></div>
+  </div>
+
+  <!-- Panel 3: Test Pass/Fail -->
+  <div class="panel" id="panelTests">
+    <div class="panel-header">
+      <span class="panel-title">Test Pass / Fail Over Time</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chartTests"></canvas></div>
+  </div>
+
+  <!-- Panel 4: Drift Detection -->
+  <div class="panel" id="panelDrift">
+    <div class="panel-header">
+      <span class="panel-title">Drift Detection</span>
+      <span class="panel-badge badge-green" id="healthBadge">--</span>
+    </div>
+    <div class="gauge-container">
+      <svg class="gauge-svg" viewBox="0 0 160 100">
+        <path d="M 15 85 A 65 65 0 0 1 145 85" fill="none" stroke="var(--gauge-bg)" stroke-width="12" stroke-linecap="round"/>
+        <path id="gaugeArc" d="M 15 85 A 65 65 0 0 1 145 85" fill="none" stroke="var(--green)" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 999"/>
+      </svg>
+      <div>
+        <span class="gauge-label" id="healthScore">--</span>
+        <span class="gauge-sublabel"> / 100</span>
+      </div>
+      <div class="sparklines">
+        <div class="sparkline-item">
+          <div class="sparkline-label">Avg Iterations</div>
+          <div class="sparkline-value" id="sparkIter">--</div>
+        </div>
+        <div class="sparkline-item">
+          <div class="sparkline-label">High Surprise %</div>
+          <div class="sparkline-value" id="sparkSurprise">--</div>
+        </div>
+        <div class="sparkline-item">
+          <div class="sparkline-label">Suppress Rate</div>
+          <div class="sparkline-value" id="sparkSuppress">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 5: Cost Per Intent -->
+  <div class="panel" id="panelCost">
+    <div class="panel-header">
+      <span class="panel-title">Cost Per Intent (USD)</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chartCost"></canvas></div>
+  </div>
+
+  <!-- Panel 6: Prediction Accuracy -->
+  <div class="panel" id="panelPredictions">
+    <div class="panel-header">
+      <span class="panel-title">Prediction Accuracy</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chartPredictions"></canvas></div>
+  </div>
+
+  <!-- Panel 7: Summary Debt -->
+  <div class="panel" id="panelDebt">
+    <div class="panel-header">
+      <span class="panel-title">Summary Debt</span>
+      <span class="panel-badge badge-green" id="debtBadge">0</span>
+    </div>
+    <ul class="debt-list" id="debtList">
+      <div class="no-data">No summary debt</div>
+    </ul>
+  </div>
+
+  <!-- Panel 8: Live Workspace State -->
+  <div class="panel" id="panelState">
+    <div class="panel-header">
+      <span class="panel-title">Workspace State</span>
+      <span class="panel-badge badge-blue" id="phaseBadge">--</span>
+    </div>
+    <div class="state-grid" id="stateGrid">
+      <div class="no-data" style="grid-column:1/-1">Loading workspace state...</div>
+    </div>
+  </div>
+
+  <!-- Comparison Mode -->
+  <div class="panel compare-section" id="panelCompare">
+    <div class="panel-header">
+      <span class="panel-title">Model Comparison</span>
+      <span class="panel-badge badge-blue" id="compareBadge">0 combos</span>
+    </div>
+    <div id="compareTableWrap"></div>
+    <div class="compare-charts">
+      <div class="chart-wrap" style="height:320px"><canvas id="chartRadar"></canvas></div>
+      <div class="chart-wrap" style="height:320px"><canvas id="chartCompareBar"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================================================================
+   Agent Performance Dashboard — Agentic Hemispheres
+   Reads:  .cursor/plans/telemetry.jsonl
+           .cursor/plans/workspace_state.json
+   ================================================================ */
+
+const DATA_PATHS = {
+  telemetry: '.cursor/plans/telemetry.jsonl',
+  workspace: '.cursor/plans/workspace_state.json'
+};
+
+const SIGNAL_COLORS = {
+  APPROVE: '#3fb950',
+  SUPPRESS: '#f85149',
+  ESCALATE: '#d29922',
+  SURPRISE: '#bc8cff',
+  ACKNOWLEDGE_ESCALATION: '#d29922',
+  unknown: '#58a6ff'
+};
+
+let telemetryData = [];
+let workspaceState = {};
+let paused = false;
+let selectedIntent = '__all__';
+let selectedModel = '__all__';
+let refreshTimer = null;
+let lastFetchTime = 0;
+
+// Chart instances
+let chartSignals, chartTests, chartCost, chartPredictions, chartRadar, chartCompareBar;
+
+// ---- Data fetching ----
+
+async function fetchJSON(path) {
+  const res = await fetch(path);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function fetchJSONL(path) {
+  const res = await fetch(path);
+  if (!res.ok) return [];
+  const text = await res.text();
+  return text.trim().split('\n').filter(Boolean).map(line => {
+    try { return JSON.parse(line); }
+    catch { return null; }
+  }).filter(Boolean);
+}
+
+async function refreshData() {
+  if (paused) return;
+  try {
+    const [tData, wState] = await Promise.all([
+      fetchJSONL(DATA_PATHS.telemetry),
+      fetchJSON(DATA_PATHS.workspace)
+    ]);
+    if (tData) telemetryData = tData;
+    if (wState) workspaceState = wState;
+    lastFetchTime = Date.now();
+    updateStatusDot('fresh');
+    populateFilters();
+    renderAll();
+  } catch (e) {
+    console.warn('Fetch error:', e);
+    updateStatusDot('dead');
+  }
+  document.getElementById('lastRefresh').textContent =
+    new Date().toLocaleTimeString();
+}
+
+function updateStatusDot(state) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (state === 'stale' ? ' stale' : state === 'dead' ? ' dead' : '');
+}
+
+// ---- Filtering ----
+
+function getFilteredData() {
+  let data = telemetryData;
+  if (selectedIntent !== '__all__') {
+    data = data.filter(d => d.intent_id === selectedIntent);
+  }
+  if (selectedModel !== '__all__') {
+    data = data.filter(d => comboKey(d.model_config) === selectedModel);
+  }
+  return data;
+}
+
+function comboKey(mc) {
+  if (!mc) return 'unknown';
+  return `${mc.master || 'opus'}+${mc.implementer || 'flash'}+${mc.verifier || 'flash'}`;
+}
+
+function populateFilters() {
+  const intentSel = document.getElementById('intentFilter');
+  const modelSel = document.getElementById('modelFilter');
+
+  const intents = [...new Set(telemetryData.map(d => d.intent_id))];
+  const models = [...new Set(telemetryData.map(d => comboKey(d.model_config)))];
+
+  syncSelect(intentSel, intents, selectedIntent, 'All');
+  syncSelect(modelSel, models, selectedModel, 'All (compare)');
+}
+
+function syncSelect(sel, items, current, allLabel) {
+  const prev = sel.value;
+  const opts = sel.querySelectorAll('option');
+  const existing = new Set();
+  opts.forEach(o => existing.add(o.value));
+
+  items.forEach(item => {
+    if (!existing.has(item)) {
+      const o = document.createElement('option');
+      o.value = item; o.textContent = item;
+      sel.appendChild(o);
+    }
+  });
+  sel.value = current;
+}
+
+// ---- Rendering ----
+
+function renderAll() {
+  const data = getFilteredData();
+  renderTimeline(data);
+  renderSignals(data);
+  renderTests(data);
+  renderDrift(data);
+  renderCost(data);
+  renderPredictions(data);
+  renderDebt();
+  renderState();
+  renderComparison();
+}
+
+// Panel 1: Timeline
+function renderTimeline(data) {
+  const track = document.getElementById('timelineTrack');
+  const badge = document.getElementById('intentCount');
+  if (!data.length) {
+    track.innerHTML = '<div class="no-data">No telemetry data yet. Run <code>./scripts/telemetry.sh &lt;intent_id&gt;</code></div>';
+    badge.textContent = '0 intents';
+    return;
+  }
+
+  badge.textContent = data.length + ' entries';
+  let html = '';
+  data.forEach((d, i) => {
+    const sig = d.signal || 'unknown';
+    const color = SIGNAL_COLORS[sig] || SIGNAL_COLORS.unknown;
+    const ts = d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : '';
+    const sel = (selectedIntent !== '__all__' && d.intent_id === selectedIntent) ? ' selected' : '';
+
+    if (i > 0) html += '<div class="timeline-connector"></div>';
+    html += `<div class="timeline-node${sel}" data-intent="${d.intent_id}" onclick="selectIntent('${d.intent_id}')">
+      <div class="timeline-dot" style="background:${color}"></div>
+      <div class="timeline-label" title="${d.intent_id}">${d.intent_id}</div>
+      <div class="timeline-time">${ts}</div>
+    </div>`;
+  });
+  track.innerHTML = html;
+}
+
+function selectIntent(id) {
+  selectedIntent = (selectedIntent === id) ? '__all__' : id;
+  document.getElementById('intentFilter').value = selectedIntent;
+  renderAll();
+}
+
+// Panel 2: Signal Distribution
+function renderSignals(data) {
+  const ctx = document.getElementById('chartSignals').getContext('2d');
+  const counts = {};
+  data.forEach(d => {
+    const sig = normalizeSignal(d.signal || 'unknown');
+    counts[sig] = (counts[sig] || 0) + 1;
+  });
+
+  const labels = Object.keys(counts);
+  const values = Object.values(counts);
+  const colors = labels.map(l => SIGNAL_COLORS[l] || SIGNAL_COLORS.unknown);
+
+  if (chartSignals) chartSignals.destroy();
+  chartSignals = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: getCSS('--text-secondary'), font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function normalizeSignal(sig) {
+  if (sig === 'ACKNOWLEDGE_ESCALATION') return 'ESCALATE';
+  return sig;
+}
+
+// Panel 3: Tests
+function renderTests(data) {
+  const ctx = document.getElementById('chartTests').getContext('2d');
+  const labels = data.map(d => shortLabel(d));
+  const passed = data.map(d => d.tests?.passed || 0);
+  const failed = data.map(d => d.tests?.failed || 0);
+
+  if (chartTests) chartTests.destroy();
+  chartTests = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Passed', data: passed, backgroundColor: 'rgba(63,185,80,0.7)', borderRadius: 4 },
+        { label: 'Failed', data: failed, backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, ticks: { color: getCSS('--text-muted'), font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: getCSS('--text-muted') }, grid: { color: getCSS('--border') } }
+      },
+      plugins: { legend: { labels: { color: getCSS('--text-secondary'), font: { size: 11 } } } }
+    }
+  });
+}
+
+// Panel 4: Drift
+function renderDrift(data) {
+  if (!data.length) {
+    document.getElementById('healthScore').textContent = '--';
+    document.getElementById('healthBadge').textContent = '--';
+    document.getElementById('sparkIter').textContent = '--';
+    document.getElementById('sparkSurprise').textContent = '--';
+    document.getElementById('sparkSuppress').textContent = '--';
+    return;
+  }
+
+  const avgIter = data.reduce((s, d) => s + (d.iterations || 0), 0) / data.length;
+  const totalPreds = data.reduce((s, d) => s + (d.predictions?.total || 0), 0);
+  const highSurprise = data.reduce((s, d) => s + (d.predictions?.high_surprise || 0), 0);
+  const surpriseRate = totalPreds > 0 ? (highSurprise / totalPreds) * 100 : 0;
+  const suppressCount = data.filter(d => normalizeSignal(d.signal) === 'SUPPRESS').length;
+  const suppressRate = (suppressCount / data.length) * 100;
+
+  // Health score: 100 = perfect, deductions for drift indicators
+  let score = 100;
+  score -= Math.min(30, avgIter * 6);       // >5 avg iterations = -30
+  score -= Math.min(35, surpriseRate * 0.7); // 50% surprise rate = -35
+  score -= Math.min(35, suppressRate * 0.7); // 50% suppress rate = -35
+  score = Math.max(0, Math.round(score));
+
+  document.getElementById('healthScore').textContent = score;
+  document.getElementById('sparkIter').textContent = avgIter.toFixed(1);
+  document.getElementById('sparkSurprise').textContent = surpriseRate.toFixed(0) + '%';
+  document.getElementById('sparkSuppress').textContent = suppressRate.toFixed(0) + '%';
+
+  const badge = document.getElementById('healthBadge');
+  if (score >= 80) { badge.textContent = 'Healthy'; badge.className = 'panel-badge badge-green'; }
+  else if (score >= 50) { badge.textContent = 'Warning'; badge.className = 'panel-badge badge-amber'; }
+  else { badge.textContent = 'Drifting'; badge.className = 'panel-badge badge-red'; }
+
+  // Gauge arc
+  const maxArc = 204; // approx arc length for the semicircle
+  const arcLen = (score / 100) * maxArc;
+  const gaugeArc = document.getElementById('gaugeArc');
+  gaugeArc.setAttribute('stroke-dasharray', `${arcLen} ${maxArc}`);
+  const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--amber)' : 'var(--red)';
+  gaugeArc.setAttribute('stroke', color);
+}
+
+// Panel 5: Cost
+function renderCost(data) {
+  const ctx = document.getElementById('chartCost').getContext('2d');
+  const labels = data.map(d => shortLabel(d));
+  const costs = data.map(d => d.cost_usd);
+  const barColors = data.map(d => {
+    const impl = d.model_config?.implementer || 'flash';
+    if (impl === 'flash' || impl === 'fast') return 'rgba(63,185,80,0.7)';
+    if (impl.includes('sonnet')) return 'rgba(210,153,34,0.7)';
+    return 'rgba(188,140,255,0.7)';
+  });
+
+  const validCosts = costs.filter(c => c !== null && c !== undefined);
+  const avg = validCosts.length ? validCosts.reduce((a, b) => a + b, 0) / validCosts.length : 0;
+
+  if (chartCost) chartCost.destroy();
+  chartCost = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Cost (USD)',
+          data: costs.map(c => c === null ? 0 : c),
+          backgroundColor: barColors,
+          borderRadius: 4
+        },
+        {
+          label: 'Average',
+          data: Array(data.length).fill(avg),
+          type: 'line',
+          borderColor: 'rgba(88,166,255,0.6)',
+          borderDash: [4, 4],
+          pointRadius: 0,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: getCSS('--text-muted'), font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: getCSS('--text-muted'), callback: v => '$' + v.toFixed(2) }, grid: { color: getCSS('--border') } }
+      },
+      plugins: { legend: { labels: { color: getCSS('--text-secondary'), font: { size: 11 } } } }
+    }
+  });
+}
+
+// Panel 6: Predictions
+function renderPredictions(data) {
+  const ctx = document.getElementById('chartPredictions').getContext('2d');
+  const labels = data.map(d => shortLabel(d));
+  const low = data.map(d => d.predictions?.low_surprise || 0);
+  const high = data.map(d => d.predictions?.high_surprise || 0);
+
+  if (chartPredictions) chartPredictions.destroy();
+  chartPredictions = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Low Surprise', data: low, backgroundColor: 'rgba(63,185,80,0.7)', borderRadius: 4 },
+        { label: 'High Surprise', data: high, backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, ticks: { color: getCSS('--text-muted'), font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: getCSS('--text-muted') }, grid: { color: getCSS('--border') } }
+      },
+      plugins: { legend: { labels: { color: getCSS('--text-secondary'), font: { size: 11 } } } }
+    }
+  });
+}
+
+// Panel 7: Summary Debt
+function renderDebt() {
+  const list = document.getElementById('debtList');
+  const badge = document.getElementById('debtBadge');
+  const debtLog = workspaceState.summary_debt_log || [];
+
+  badge.textContent = debtLog.length;
+  if (debtLog.length === 0) {
+    badge.className = 'panel-badge badge-green';
+    list.innerHTML = '<div class="no-data">No summary debt</div>';
+    return;
+  }
+
+  badge.className = debtLog.length > 3 ? 'panel-badge badge-red' : 'panel-badge badge-amber';
+  list.innerHTML = debtLog.map(item => {
+    const file = typeof item === 'string' ? item : (item.file || item.path || JSON.stringify(item));
+    const reason = (typeof item === 'object' && item.reason) ? item.reason : 'stale or missing';
+    return `<li class="debt-item"><span class="debt-file">${escapeHtml(file)}</span><span class="debt-reason">${escapeHtml(reason)}</span></li>`;
+  }).join('');
+}
+
+// Panel 8: Workspace State
+function renderState() {
+  const grid = document.getElementById('stateGrid');
+  const phaseBadge = document.getElementById('phaseBadge');
+
+  if (!workspaceState || !workspaceState.intent_id) {
+    grid.innerHTML = '<div class="no-data" style="grid-column:1/-1">No workspace state loaded</div>';
+    phaseBadge.textContent = '--';
+    return;
+  }
+
+  const ws = workspaceState;
+  phaseBadge.textContent = ws.phase || '--';
+
+  const signal = ws.master_signal?.signal || '--';
+  const modelTier = ws.model_tier || '--';
+  const items = ws.action_items || [];
+  const verdict = ws.verifier_report?.verdict || '--';
+
+  grid.innerHTML = `
+    <span class="state-key">intent</span><span class="state-value">${escapeHtml(ws.intent_id)}</span>
+    <span class="state-key">phase</span><span class="state-value">${escapeHtml(ws.phase || '--')}</span>
+    <span class="state-key">model_tier</span><span class="state-value">${escapeHtml(modelTier)}</span>
+    <span class="state-key">signal</span><span class="state-value" style="color:${SIGNAL_COLORS[normalizeSignal(signal)] || 'inherit'}">${escapeHtml(signal)}</span>
+    <span class="state-key">verifier</span><span class="state-value">${escapeHtml(verdict)}</span>
+    <span class="state-key">actions</span><span class="state-value">${items.map(a => escapeHtml(a)).join('<br>')}</span>
+  `;
+}
+
+// ---- Comparison Mode ----
+
+function renderComparison() {
+  const panel = document.getElementById('panelCompare');
+  const isCompare = selectedModel === '__all__' && telemetryData.length > 0;
+
+  if (isCompare) {
+    panel.classList.add('visible');
+  } else {
+    panel.classList.remove('visible');
+    return;
+  }
+
+  const combos = {};
+  telemetryData.forEach(d => {
+    const key = comboKey(d.model_config);
+    if (!combos[key]) combos[key] = [];
+    combos[key].push(d);
+  });
+
+  const comboKeys = Object.keys(combos);
+  document.getElementById('compareBadge').textContent = comboKeys.length + ' combo' + (comboKeys.length !== 1 ? 's' : '');
+
+  // Build table
+  const metrics = comboKeys.map(key => {
+    const entries = combos[key];
+    const n = entries.length;
+    const costs = entries.filter(e => e.cost_usd !== null && e.cost_usd !== undefined).map(e => e.cost_usd);
+    const avgCost = costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : null;
+    const avgIter = entries.reduce((s, e) => s + (e.iterations || 0), 0) / n;
+    const approveRate = (entries.filter(e => normalizeSignal(e.signal) === 'APPROVE').length / n) * 100;
+    const testPassRate = (entries.filter(e => e.tests?.result === 'pass').length / n) * 100;
+    const totalPreds = entries.reduce((s, e) => s + (e.predictions?.total || 0), 0);
+    const highSurp = entries.reduce((s, e) => s + (e.predictions?.high_surprise || 0), 0);
+    const surpriseRate = totalPreds > 0 ? (highSurp / totalPreds) * 100 : 0;
+    const avgCallosal = entries.reduce((s, e) => s + (e.callosal_bytes || 0), 0) / n;
+
+    return {
+      key, n, avgCost, avgIter, approveRate, testPassRate, surpriseRate, avgCallosal
+    };
+  });
+
+  // Table HTML
+  let tableHtml = `<table class="compare-table">
+    <thead><tr>
+      <th>Combo</th><th>Runs</th><th>Avg Cost</th><th>Avg Iter</th>
+      <th>Approve %</th><th>Test Pass %</th><th>High Surprise %</th><th>Avg Callosal</th>
+    </tr></thead><tbody>`;
+  metrics.forEach(m => {
+    tableHtml += `<tr>
+      <td>${escapeHtml(m.key)}</td>
+      <td>${m.n}</td>
+      <td>${m.avgCost !== null ? '$' + m.avgCost.toFixed(3) : '--'}</td>
+      <td>${m.avgIter.toFixed(1)}</td>
+      <td>${m.approveRate.toFixed(0)}%</td>
+      <td>${m.testPassRate.toFixed(0)}%</td>
+      <td>${m.surpriseRate.toFixed(0)}%</td>
+      <td>${(m.avgCallosal / 1024).toFixed(1)} KB</td>
+    </tr>`;
+  });
+  tableHtml += '</tbody></table>';
+  document.getElementById('compareTableWrap').innerHTML = tableHtml;
+
+  // Radar chart
+  const radarCtx = document.getElementById('chartRadar').getContext('2d');
+  if (chartRadar) chartRadar.destroy();
+
+  const radarColors = ['rgba(88,166,255,0.7)', 'rgba(63,185,80,0.7)', 'rgba(210,153,34,0.7)', 'rgba(188,140,255,0.7)', 'rgba(248,81,73,0.7)'];
+
+  chartRadar = new Chart(radarCtx, {
+    type: 'radar',
+    data: {
+      labels: ['Quality', 'Speed', 'Accuracy', 'Efficiency', 'Economy'],
+      datasets: metrics.map((m, i) => ({
+        label: m.key,
+        data: [
+          m.approveRate,
+          Math.max(0, 100 - m.avgIter * 20),
+          Math.max(0, 100 - m.surpriseRate),
+          Math.max(0, 100 - (m.avgCallosal / 50)),
+          m.avgCost !== null ? Math.max(0, 100 - m.avgCost * 500) : 50
+        ],
+        borderColor: radarColors[i % radarColors.length],
+        backgroundColor: radarColors[i % radarColors.length].replace('0.7', '0.15'),
+        pointBackgroundColor: radarColors[i % radarColors.length],
+        borderWidth: 2
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        r: {
+          beginAtZero: true, max: 100,
+          grid: { color: getCSS('--border') },
+          pointLabels: { color: getCSS('--text-secondary'), font: { size: 11 } },
+          ticks: { display: false }
+        }
+      },
+      plugins: { legend: { labels: { color: getCSS('--text-secondary'), font: { size: 11 } } } }
+    }
+  });
+
+  // Bar comparison chart
+  const barCtx = document.getElementById('chartCompareBar').getContext('2d');
+  if (chartCompareBar) chartCompareBar.destroy();
+
+  chartCompareBar = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: metrics.map(m => m.key),
+      datasets: [
+        { label: 'Approve %', data: metrics.map(m => m.approveRate), backgroundColor: 'rgba(63,185,80,0.7)', borderRadius: 4 },
+        { label: 'Test Pass %', data: metrics.map(m => m.testPassRate), backgroundColor: 'rgba(88,166,255,0.7)', borderRadius: 4 },
+        { label: '100 - Surprise %', data: metrics.map(m => 100 - m.surpriseRate), backgroundColor: 'rgba(188,140,255,0.7)', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: getCSS('--text-muted'), font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, max: 100, ticks: { color: getCSS('--text-muted') }, grid: { color: getCSS('--border') } }
+      },
+      plugins: { legend: { labels: { color: getCSS('--text-secondary'), font: { size: 11 } } } }
+    }
+  });
+}
+
+// ---- Utilities ----
+
+function shortLabel(d) {
+  const id = d.intent_id || 'unknown';
+  return id.length > 16 ? id.slice(0, 14) + '..' : id;
+}
+
+function getCSS(prop) {
+  return getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---- Controls ----
+
+document.getElementById('pauseBtn').addEventListener('click', () => {
+  paused = !paused;
+  const btn = document.getElementById('pauseBtn');
+  btn.textContent = paused ? 'Resume' : 'Pause';
+  btn.classList.toggle('active', paused);
+});
+
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('themeBtn').textContent = isDark ? 'Dark' : 'Light';
+  renderAll();
+});
+
+document.getElementById('intentFilter').addEventListener('change', e => {
+  selectedIntent = e.target.value;
+  renderAll();
+});
+
+document.getElementById('modelFilter').addEventListener('change', e => {
+  selectedModel = e.target.value;
+  renderAll();
+});
+
+// ---- Staleness check ----
+setInterval(() => {
+  if (paused) return;
+  const age = Date.now() - lastFetchTime;
+  if (age > 30000) updateStatusDot('dead');
+  else if (age > 10000) updateStatusDot('stale');
+}, 3000);
+
+// ---- Init ----
+refreshData();
+refreshTimer = setInterval(refreshData, 5000);
+</script>
+</body>
+</html>

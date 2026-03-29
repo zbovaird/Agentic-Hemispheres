@@ -43,6 +43,7 @@ Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope
 ├── test-runs/                                    # Validation runs (APPROVE + ESCALATE paths)
 │   ├── 01-string-utils/                          # String utils — 75% cost savings (v2)
 │   └── 02-boundary-violation/                    # Array utils + contradiction trap — 84% savings (v2)
+├── telemetry.html                                 # Agent performance dashboard (serve locally)
 ├── .cursorrules                                  # Cursor template guidance
 └── README.md
 ```
@@ -163,11 +164,40 @@ Creates baseline tags for worktrees and supports rollback:
 
 ### Telemetry — `scripts/telemetry.sh`
 
-Collects observable metrics (test pass/fail, lint status, workspace phase) and appends to `.cursor/plans/telemetry.jsonl`:
+Collects agent performance metrics and appends to `.cursor/plans/telemetry.jsonl`:
 
 ```bash
-./scripts/telemetry.sh <intent_id>
+./scripts/telemetry.sh <intent_id>            # auto-collect metrics (cost = null)
+./scripts/telemetry.sh <intent_id> 0.045      # include actual cost from Cursor usage panel
 ```
+
+Each entry captures: model config (master/implementer/verifier), test results, lint status, signal type (APPROVE/SUPPRESS/ESCALATE/SURPRISE), iteration count, prediction accuracy (low vs high surprise), callosal bytes (workspace state size), summary debt count, and optional cost.
+
+### Telemetry Dashboard — `telemetry.html`
+
+A real-time 8-panel dashboard for monitoring agent performance, detecting drift, and comparing model combinations.
+
+**Panels:**
+
+1. **Intent Timeline** — colored nodes per signal type; click to filter
+2. **Signal Distribution** — doughnut chart of APPROVE/SUPPRESS/ESCALATE/SURPRISE ratios
+3. **Test Pass/Fail** — bar chart over time
+4. **Drift Detection** — composite health score (0-100) from iteration trend, surprise rate, suppress frequency
+5. **Cost Per Intent** — bar chart with running average (manual cost entry via telemetry.sh)
+6. **Prediction Accuracy** — stacked bars of low vs high surprise per intent
+7. **Summary Debt** — live list of stale/missing summaries from workspace state
+8. **Workspace State** — live card showing current intent, phase, model tier, signal, verifier verdict
+
+**Model Comparison Mode:** Select "All" in the Model Combo filter to see an aggregate table and radar chart comparing each Master+Emissary pairing across cost, speed, quality, accuracy, and efficiency.
+
+**To use:**
+
+```bash
+npx serve . -l 3000
+# Open http://localhost:3000/telemetry.html
+```
+
+The dashboard auto-refreshes every 5 seconds. Use the Pause button to freeze. Supports dark and light mode.
 
 ### Context Pruner — `scripts/prune-context.sh`
 
@@ -286,7 +316,8 @@ The cost savings scale with the price gap between your Master and Emissary model
 - **Subagent Architecture:** Implementer and Verifier as `.cursor/agents/*.md` with YAML frontmatter. Master orchestrates both sequentially (no nesting).
 - **Summary-First Navigation:** Layered file access (Map → README → Sidecar) to reduce exploration tax. Summary debt tracked by verifier.
 - **Worktree Guard:** Baseline tagging and rollback via `wt-guard.sh`.
-- **MVP Telemetry:** Observable metrics (test/lint/state) logged to `telemetry.jsonl`.
+- **Agent Telemetry:** Rich metrics (model config, signals, predictions, drift, cost) logged to `telemetry.jsonl`.
+- **Performance Dashboard:** `telemetry.html` — 8-panel real-time dashboard with drift detection, model comparison mode (radar + table), and dark/light theme.
 - **Context Pruner:** Action journal summarized and truncated after intent completion to stay under token budget.
 
 ## Validation Results

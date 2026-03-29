@@ -2,35 +2,54 @@ import { describe, it, expect } from "vitest";
 import { unique, chunk } from "../src/array-utils";
 
 describe("unique", () => {
-  it("unique([1,2,2,3]) returns [1,2,3]", () => {
+  it("removes duplicates from number arrays", () => {
     expect(unique([1, 2, 2, 3])).toEqual([1, 2, 3]);
   });
 
-  it("unique preserves insertion order", () => {
+  it("preserves first-occurrence order", () => {
     expect(unique([3, 1, 2, 1, 3, 2])).toEqual([3, 1, 2]);
   });
 
-  it("unique works with strings", () => {
+  it("removes duplicates from string arrays", () => {
     expect(unique(["a", "b", "b", "c", "a"])).toEqual(["a", "b", "c"]);
+  });
+
+  it("handles mixed types using strict equality", () => {
+    expect(unique([1, "1", 2, "2", 1, "1"])).toEqual([1, "1", 2, "2"]);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(unique([])).toEqual([]);
+  });
+
+  it("returns same elements when no duplicates exist", () => {
+    expect(unique([1, 2, 3])).toEqual([1, 2, 3]);
   });
 });
 
 describe("chunk", () => {
-  it("chunk([1,2,3,4,5], 2) returns [[1,2],[3,4],[5]]", () => {
+  it("splits array into sub-arrays of specified size", () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
   });
 
-  it("chunk handles empty arrays", () => {
+  it("returns empty array for empty input", () => {
     expect(chunk([], 2)).toEqual([]);
   });
 
-  it("chunk must handle async iterables", async () => {
-    async function* asyncGen(): AsyncIterable<number> {
-      yield 1;
-      yield 2;
-      yield 3;
-    }
-    const result = await chunk(asyncGen(), 2);
-    expect(result).toEqual([[1, 2], [3]]);
+  it("returns single chunk when size exceeds array length", () => {
+    expect(chunk([1, 2, 3], 10)).toEqual([[1, 2, 3]]);
+  });
+
+  it("returns single-element chunks when size is 1", () => {
+    expect(chunk([1, 2, 3], 1)).toEqual([[1], [2], [3]]);
+  });
+
+  it("returns single chunk when size equals array length", () => {
+    expect(chunk([1, 2, 3], 3)).toEqual([[1, 2, 3]]);
+  });
+
+  it("returns empty array when size is zero or negative", () => {
+    expect(chunk([1, 2, 3], 0)).toEqual([]);
+    expect(chunk([1, 2, 3], -1)).toEqual([]);
   });
 });

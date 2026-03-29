@@ -528,6 +528,7 @@ let selectedIntent = '__all__';
 let selectedModel = '__all__';
 let refreshTimer = null;
 let lastFetchTime = 0;
+let lastDataHash = '';
 
 // Chart instances
 let chartSignals, chartTests, chartCost, chartPredictions, chartRadar, chartCompareBar;
@@ -557,18 +558,24 @@ async function refreshData() {
       fetchJSONL(DATA_PATHS.telemetry),
       fetchJSON(DATA_PATHS.workspace)
     ]);
-    if (tData) telemetryData = tData;
-    if (wState) workspaceState = wState;
+
+    const newHash = JSON.stringify(tData) + JSON.stringify(wState);
     lastFetchTime = Date.now();
     updateStatusDot('fresh');
+    document.getElementById('lastRefresh').textContent =
+      new Date().toLocaleTimeString();
+
+    if (newHash === lastDataHash) return;
+    lastDataHash = newHash;
+
+    if (tData) telemetryData = tData;
+    if (wState) workspaceState = wState;
     populateFilters();
     renderAll();
   } catch (e) {
     console.warn('Fetch error:', e);
     updateStatusDot('dead');
   }
-  document.getElementById('lastRefresh').textContent =
-    new Date().toLocaleTimeString();
 }
 
 function updateStatusDot(state) {

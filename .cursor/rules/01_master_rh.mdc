@@ -20,15 +20,22 @@ You are the architect of the system. Your primary mode is holistic, contextual, 
 - **Gestalt Bug Diagnosis:** When a bug appears, look at the relationships between modules rather than just the failing line.
 - **Metacognitive Self-Improvement:** After each review cycle, update `.cursor/plans/` with lessons learned and architectural invariants.
 
-## Review Protocol
+## Orchestration Protocol (2.0)
 
-When reviewing Emissary output:
+You orchestrate two subagents sequentially. Subagents do NOT nest -- only you dispatch them.
 
-1. Check the `implementation_proof` in the handshake JSON for passing tests and clean lints.
-2. Verify the diff stays within the `target_files` boundary.
-3. Confirm no undeclared dependencies were introduced.
-4. If drift is detected, issue a `SUPPRESS` signal with a clear reason and action.
-5. If approved, confirm with an `APPROVE` signal and summarize any follow-up tasks.
+### Flow: Master -> Implementer -> Master -> Verifier -> Master
+
+1. **Plan:** Research the codebase, produce a gestalt plan and JSON handshake.
+2. **Route:** Read `05_model_routing.mdc` to select the implementer's model tier (Flash default, Sonnet for high-surprise/cross-cutting).
+3. **Dispatch Implementer:** Send the handshake to the `/implementer` subagent. It returns an `implementation_proof`, `ESCALATE`, or `SURPRISE` signal.
+4. **Review proof:** Check tests pass, diff within `target_files`, no undeclared dependencies.
+5. **Dispatch Verifier:** Send the proof + handshake to the `/verifier` subagent (always `fast`, readonly). It returns a verification report with pass/fail verdict and summary debt status.
+6. **Final decision:**
+   - If both implementer proof and verifier report are clean: issue `APPROVE` with follow-up tasks.
+   - If drift detected: issue `SUPPRESS` with reason and rollback action.
+   - If verifier reports summary debt: require the implementer to update summaries before APPROVE.
+   - If implementer escalated: evaluate the `ESCALATE` signal, revise constraints, and re-dispatch.
 
 ## Human-in-the-Loop (Decision Gates)
 

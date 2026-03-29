@@ -75,6 +75,7 @@ Instead of passing full conversation history between agents, both read from and 
 {
   "intent_id": "feat-auth-endpoint-001",
   "phase": "implementation",
+  "model_tier": "flash",
   "master_constraints": [
     "Must use existing AuthMiddleware pattern",
     "No new runtime dependencies"
@@ -89,8 +90,26 @@ Instead of passing full conversation history between agents, both read from and 
   ],
   "prediction_log": [
     { "step": "run-migration", "predicted": "Table created successfully", "actual": "Table created successfully", "deviation": "low" }
-  ]
+  ],
+  "summary_debt_log": [
+    { "file": "src/controllers/auth.controller.ts", "status": "stale", "reason": "Modified in this intent but summary not updated" }
+  ],
+  "verifier_report": {
+    "verdict": "PASS",
+    "tests": { "passed": 12, "failed": 0, "total": 12 },
+    "summary_debt": ["src/controllers/auth.controller.ts"]
+  }
 }
 ```
+
+### Fields added in 2.0
+
+- `model_tier`: Which model tier was used for the implementer (`flash`, `sonnet`, or `opus`).
+- `summary_debt_log`: Array of files whose Layer 3 summary sidecars are stale or missing after modification. The verifier populates this; the Master must clear it before APPROVE.
+- `verifier_report`: Structured output from the verifier subagent, embedded in the workspace state for the Master's final review.
+
+### Action Journal
+
+Raw observations during an intent cycle are appended to `.cursor/plans/action_journal.jsonl` (one JSON object per line). After the verifier exits and the Master issues a final signal, the pruner script (`scripts/prune-context.sh`) summarizes the journal into the workspace state and truncates the raw log. This keeps the global workspace under the 8k token budget.
 
 This "summary-first" broadcast reduces the input token count for every turn because agents only consume the salient state, not the raw conversation log.

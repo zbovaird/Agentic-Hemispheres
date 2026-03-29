@@ -15,24 +15,35 @@ Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope
 ## Repository Structure
 
 ```
-├── High-level plan/
-│   └── high-level plan.md                        # Implementation guide (Plan → Implement → Review)
-├── test-runs/                                    # Validation runs (APPROVE + ESCALATE paths)
-│   ├── 01-string-utils/                          # String utils — 75% cost savings (v2)
-│   └── 02-boundary-violation/                    # Array utils + contradiction trap — 84% savings (v2)
-├── scripts/
-│   └── wt-spawn.sh                               # Git worktree spawner for parallel Emissaries
 ├── .cursor/
+│   ├── agents/                                    # Subagent definitions (2.0)
+│   │   ├── implementer.md                        # TDD implementation subagent (Flash/Sonnet)
+│   │   └── verifier.md                           # Readonly validation subagent (Fast)
 │   ├── rules/
-│   │   ├── 01_master_rh.mdc                     # Master agent rules
+│   │   ├── 01_master_rh.mdc                     # Master agent rules + orchestration protocol
 │   │   ├── 02_emissary_lh.mdc                   # Emissary agent rules
 │   │   ├── 03_callosum.mdc                      # Communication protocol + Global Workspace
-│   │   └── 04_security.mdc                      # STDIO/MCP security governance
+│   │   ├── 04_security.mdc                      # STDIO/MCP security governance
+│   │   ├── 05_model_routing.mdc                 # Tri-model tiering (Opus/Sonnet/Flash)
+│   │   └── 06_ai_navigation.mdc                 # Summary-first file access policy
 │   ├── mcp.json                                  # MCP server configuration (local stdio)
 │   ├── hooks/
 │   │   └── grind.ts                              # Inhibitory feedback loop
-│   └── plans/                                    # Architectural Gestalt + workspace state
-├── .cursorrules                                  # Cursor template guidance (project structure, standards)
+│   └── plans/                                    # Gestalt plans, workspace state, action journal
+├── docs/
+│   ├── MAP.md                                    # Layer 1 navigation map
+│   └── summaries/                                # Layer 3 summary sidecars per source file
+├── scripts/
+│   ├── wt-spawn.sh                               # Create git worktrees for parallel Emissaries
+│   ├── wt-guard.sh                               # Baseline tagging + rollback for worktrees
+│   ├── telemetry.sh                              # MVP telemetry: test/lint/state metrics
+│   └── prune-context.sh                          # Prune action journal after intent completion
+├── High-level plan/
+│   └── high-level plan.md                        # Implementation guide
+├── test-runs/                                    # Validation runs (APPROVE + ESCALATE paths)
+│   ├── 01-string-utils/                          # String utils — 75% cost savings (v2)
+│   └── 02-boundary-violation/                    # Array utils + contradiction trap — 84% savings (v2)
+├── .cursorrules                                  # Cursor template guidance
 └── README.md
 ```
 
@@ -102,6 +113,31 @@ Browse packages on npm (`@modelcontextprotocol/server-*`) or the [MCP registry](
 
 **Security:** All servers run over stdio (local processes only — no network exposure). **Cross-server isolation** prevents data from one server from leaking into another; the Emissary does not cross-pollinate outputs between `stdio` server instances. **Tool schema isolation** keeps the Master from seeing raw tool schemas (prevents "Shadow Poisoning" of its holistic context); only the Emissary interacts with tool interfaces and summarizes results.
 
+### Model Routing — `05_model_routing.mdc`
+
+Defines when to use each model tier. The Master reads this before dispatching subagents:
+
+- **Opus:** Planning, final review, decision gates (Master only — not a subagent).
+- **Sonnet:** High-surprise retries, ESCALATE re-analysis, cross-cutting refactors (>5 target files).
+- **Flash:** Standard implementation, TDD, verification, boilerplate (default for implementer and verifier).
+
+### AI Navigation — `06_ai_navigation.mdc`
+
+Summary-first file access to reduce the "exploration tax":
+
+- **Layer 1 (Map):** Read `docs/MAP.md` first for directory orientation.
+- **Layer 2 (READMEs):** Check for README or summary sidecar before opening files >300 lines.
+- **Layer 3 (Sidecars):** `docs/summaries/<filename>.summary.md` — maintained by the verifier. Stale summaries are "summary debt" that blocks APPROVE.
+
+### Subagents — `.cursor/agents/`
+
+Two subagents defined as Markdown with YAML frontmatter (per Cursor docs):
+
+- **`implementer.md`** — TDD implementation (Flash or Sonnet). Returns proof/ESCALATE/SURPRISE to Master.
+- **`verifier.md`** — Readonly validation (Fast). Runs tests, checks summary debt, reports pass/fail.
+
+Subagents do not nest. The Master dispatches both sequentially: Implementer first, then Verifier.
+
 ### Grind Hook — `.cursor/hooks/grind.ts`
 
 Runs on save for `src/**` and `tests/**`. Re-runs lint and tests; if failures persist for 5 iterations, escalates to the Master with an `ESCALATE` payload. Validation runs used subagent self-correction; the grind hook is available for automation.
@@ -115,6 +151,31 @@ Creates isolated git worktrees for parallel Emissary sessions:
 ```
 
 Open each worktree in a new Cursor window. The Master in the main repo reviews PRs from each worktree and merges back.
+
+### Worktree Guard — `scripts/wt-guard.sh`
+
+Creates baseline tags for worktrees and supports rollback:
+
+```bash
+./scripts/wt-guard.sh <worktree-path> tag       # Create baseline
+./scripts/wt-guard.sh <worktree-path> rollback   # Reset to baseline
+```
+
+### Telemetry — `scripts/telemetry.sh`
+
+Collects observable metrics (test pass/fail, lint status, workspace phase) and appends to `.cursor/plans/telemetry.jsonl`:
+
+```bash
+./scripts/telemetry.sh <intent_id>
+```
+
+### Context Pruner — `scripts/prune-context.sh`
+
+After the verifier exits and the Master issues a final signal, summarizes the action journal and truncates the raw log to keep the global workspace under budget:
+
+```bash
+./scripts/prune-context.sh
+```
 
 ## Quick Start
 
@@ -143,15 +204,20 @@ You can trigger this by asking the Master:
 
 > Dispatch the Emissary to implement the plan in @gestalt_01.md. The Emissary should only touch the files in `target_files`, write tests first, then implement. It should return an implementation proof when done.
 
-### Phase 3: Master Reviews
+### Phase 3: Verifier Validates (Subagent)
 
-The Master receives the Emissary's proof in the same session and reviews it:
+The Master dispatches the `/verifier` subagent (always Fast, readonly) with the implementer's proof. The verifier independently runs tests, checks file boundaries, and reports summary debt. It returns a structured verdict to the Master.
 
-- Tests pass? Diff within boundary? No undeclared dependencies?
+### Phase 4: Master Reviews
+
+The Master reviews both the implementer's proof and the verifier's report:
+
+- Tests pass? Diff within boundary? No undeclared dependencies? Summary debt cleared?
 - If aligned: `APPROVE` with follow-up tasks.
 - If drift detected: `SUPPRESS` with rollback instructions.
+- If summary debt: require the implementer to update summaries before APPROVE.
 
-### Phase 4: Repeat
+### Phase 5: Repeat
 
 Continue the Right → Left → Right spiral. The Global Workspace at `.cursor/plans/workspace_state.json` carries state between cycles. See `High-level plan/high-level plan.md` for the full workflow, signal types, and economics.
 
@@ -169,7 +235,7 @@ Set `SNYK_TOKEN` in your environment to enable the `security-audit` MCP server.
 
 ## Changing Models
 
-The template defaults to Claude 4.6 Opus (Master) and Gemini 2.5 Flash (Emissary), but you can swap in any models that fit the roles.
+The template defaults to Claude 4.6 Opus (Master), Gemini 2.5 Flash (Implementer/Verifier), and Claude Sonnet (mid-tier for high-surprise tasks). You can swap in any models that fit the roles. See `05_model_routing.mdc` for when each tier is used.
 
 ### Master (Right Hemisphere) — high-reasoning model
 
@@ -213,6 +279,15 @@ The cost savings scale with the price gap between your Master and Emissary model
 - **Active Inference / Predictive Processing:** Emissary predicts outcomes before acting. Low surprise → autonomous; high surprise → Master re-evaluation.
 - **STDIO Security Layer:** All MCP tools run as local stdio child processes. Tool schemas isolated from Master.
 - **Parallel Worktree Execution:** `wt-spawn.sh` for isolated worktrees; Master reviews and merges.
+
+## 2.0 Capabilities
+
+- **Tri-Model Tiering:** Opus for planning/review, Sonnet for high-surprise/cross-cutting work, Flash for standard implementation and verification. Routing criteria defined in `05_model_routing.mdc`.
+- **Subagent Architecture:** Implementer and Verifier as `.cursor/agents/*.md` with YAML frontmatter. Master orchestrates both sequentially (no nesting).
+- **Summary-First Navigation:** Layered file access (Map → README → Sidecar) to reduce exploration tax. Summary debt tracked by verifier.
+- **Worktree Guard:** Baseline tagging and rollback via `wt-guard.sh`.
+- **MVP Telemetry:** Observable metrics (test/lint/state) logged to `telemetry.jsonl`.
+- **Context Pruner:** Action journal summarized and truncated after intent completion to stay under token budget.
 
 ## Validation Results
 

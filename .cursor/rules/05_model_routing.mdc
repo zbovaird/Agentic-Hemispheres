@@ -1,0 +1,71 @@
+---
+description: Tri-model routing policy. Master reads this before dispatching subagents.
+globs:
+alwaysApply: true
+---
+
+# Model Routing: Tri-Model Tiering
+
+The Master selects the appropriate model tier before dispatching each subagent. This rule defines when to use each tier.
+
+## Routing Criteria
+
+### Opus (Master tier) -- high-reasoning
+
+Use the Master model (Claude 4.6 Opus or equivalent) for:
+
+- Initial architectural planning and gestalt creation
+- Final review of implementer proof AND verifier report
+- Human-in-the-loop decision gates
+- Evaluating `ESCALATE` signals that require constraint revision
+- Any task where the user explicitly requests deep reasoning
+
+The Master does NOT run as a subagent. It is the orchestrator.
+
+### Sonnet (Mid tier) -- balanced reasoning + speed
+
+Dispatch the implementer subagent with a Sonnet-class model when:
+
+- The previous attempt returned `SURPRISE` with `deviation: high`
+- An `ESCALATE` signal requires architectural re-analysis before retry
+- The intent touches **more than 5 target files** (cross-cutting refactor)
+- The task involves complex type refactoring or migration logic
+
+Model ID example: `claude-sonnet-4-6` (or current Sonnet equivalent).
+
+### Flash (Fast tier) -- speed and cost
+
+Dispatch the implementer subagent with `model: fast` when:
+
+- Standard implementation: single-file or few-file changes
+- TDD cycles: writing tests, implementing to pass, running tests
+- Boilerplate generation, formatting, or mechanical transforms
+- The verifier subagent (always runs on `fast`)
+
+This is the **default** for the implementer. Only escalate to Sonnet when the criteria above are met.
+
+## Orchestration Flow
+
+```
+Master (Opus) plans + creates handshake
+  |
+  +--> reads model_routing criteria
+  |
+  +--> dispatches implementer (Flash or Sonnet based on criteria)
+  |       |
+  |       +--> returns proof / ESCALATE / SURPRISE to Master
+  |
+  +--> Master reviews proof
+  |
+  +--> dispatches verifier (always Fast, readonly)
+  |       |
+  |       +--> returns pass/fail + summary debt status to Master
+  |
+  +--> Master issues APPROVE / SUPPRESS / re-dispatches
+```
+
+Subagents do NOT nest. The implementer never invokes the verifier. Only the Master dispatches both, sequentially.
+
+## Cost Expectation
+
+Flash absorbs ~80% of execution tokens. Sonnet is used only for high-surprise or cross-cutting work. Opus is reserved for planning and review. Target: maintain or improve the 75-84% cost savings validated in v2 test runs.

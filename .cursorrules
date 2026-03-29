@@ -10,10 +10,15 @@ This project uses a **bi-hemispheric AI orchestration** model (Master–Emissary
 
 ## Project Structure
 
-- `.cursor/rules/` — Agent behavior rules (01_master_rh, 02_emissary_lh, 03_callosum, 04_security)
+- `.cursor/rules/` — Agent behavior rules (01_master_rh, 02_emissary_lh, 03_callosum, 04_security, 05_model_routing, 06_ai_navigation)
+- `.cursor/agents/` — Subagent definitions (implementer.md, verifier.md)
 - `.cursor/mcp.json` — MCP server config (stdio-only: local-filesystem, security-audit)
-- `.cursor/plans/` — Gestalt plans, handshakes, proofs, and `workspace_state.json`
+- `.cursor/plans/` — Gestalt plans, handshakes, proofs, `workspace_state.json`, and `action_journal.jsonl`
+- `docs/MAP.md` — Layer 1 navigation map; `docs/summaries/` — Layer 3 summary sidecars
 - `scripts/wt-spawn.sh` — Spawn parallel git worktrees for concurrent Emissary sessions
+- `scripts/wt-guard.sh` — Baseline tagging and rollback for worktrees
+- `scripts/telemetry.sh` — MVP telemetry collection
+- `scripts/prune-context.sh` — Action journal pruner
 - `test-runs/` — Validation artifacts and analyses
 
 ## Coding Standards
@@ -27,6 +32,16 @@ This project uses a **bi-hemispheric AI orchestration** model (Master–Emissary
 ## Handshake Protocol
 
 Master issues a JSON handshake with `intent_id`, `architectural_constraint`, `target_files`, and `acceptance_criteria`. Emissary returns an `implementation_proof` or `ESCALATE`/`SURPRISE` signal. Master reviews and issues `APPROVE` or `SUPPRESS`.
+
+## Orchestration (2.0)
+
+The Master dispatches two subagents sequentially. Subagents do NOT nest.
+
+1. Master plans and creates handshake.
+2. Master reads `05_model_routing.mdc` to select model tier (Flash default, Sonnet for high-surprise).
+3. Master dispatches `/implementer` subagent. It returns proof/ESCALATE/SURPRISE.
+4. Master dispatches `/verifier` subagent (always Fast, readonly). It returns pass/fail + summary debt.
+5. Master issues APPROVE or SUPPRESS based on both reports.
 
 ## When Using This Template
 

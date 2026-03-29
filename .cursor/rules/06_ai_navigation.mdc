@@ -1,0 +1,43 @@
+---
+description: Summary-first navigation policy. Agents should read maps and summaries before opening large files.
+globs:
+alwaysApply: true
+---
+
+# AI Navigation: Summary-First File Access
+
+Agents waste tokens reading irrelevant files. This rule defines a layered navigation strategy to reduce the "exploration tax."
+
+## Navigation Layers
+
+### Layer 1: Map (read first)
+
+Before exploring the codebase, read `docs/MAP.md`. It contains a high-level directory map with purpose annotations. This orients the agent without opening any source files.
+
+### Layer 2: READMEs and summaries (read second)
+
+Before opening any file longer than 300 lines, check for:
+- A `README.md` in the same directory
+- A summary sidecar at `docs/summaries/<filename>.summary.md`
+
+If either exists, read it first. It may contain enough context to avoid opening the full file.
+
+### Layer 3: Summary sidecars (maintained by verifier)
+
+For key source files, summary sidecars live at `docs/summaries/<filename>.summary.md`. These contain:
+- Purpose of the file (1-2 sentences)
+- Key exports and their signatures
+- Dependencies and relationships
+- Last verified intent ID
+
+The verifier subagent checks that these are up to date after each implementation cycle. Stale summaries are reported as "summary debt."
+
+## When to Skip Navigation
+
+- Files under 300 lines: open directly.
+- Files already in `target_files` for the current intent: open directly (the handshake provides sufficient context).
+- Emergency debugging: skip layers if the Master explicitly authorizes direct file access.
+
+## Summary Debt
+
+If a source file is modified but its Layer 3 summary is not updated, this is "summary debt." The verifier reports it. The Master must ensure debt is cleared before issuing APPROVE.

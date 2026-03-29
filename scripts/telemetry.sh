@@ -71,29 +71,33 @@ if [ -f "$WORKSPACE_STATE" ]; then
 
   signal=$(grep -o '"signal"[[:space:]]*:[[:space:]]*"[^"]*"' "$WORKSPACE_STATE" | head -1 | sed 's/.*: *"//;s/"//' 2>/dev/null || echo "unknown")
 
-  iterations=$(grep -c '"step"' "$WORKSPACE_STATE" 2>/dev/null || echo "0")
+  iterations=$(grep -c '"step"' "$WORKSPACE_STATE" 2>/dev/null || true)
+  iterations=$(echo "$iterations" | tr -d '[:space:]')
+  iterations=${iterations:-0}
 
   pred_total=$iterations
-  pred_high=$(grep -c '"deviation"[[:space:]]*:[[:space:]]*"high"' "$WORKSPACE_STATE" 2>/dev/null || echo "0")
+  pred_high=$(grep -c '"deviation"[[:space:]]*:[[:space:]]*"high"' "$WORKSPACE_STATE" 2>/dev/null || true)
+  pred_high=$(echo "$pred_high" | tr -d '[:space:]')
+  pred_high=${pred_high:-0}
   pred_low=$((pred_total - pred_high))
   if [ "$pred_low" -lt 0 ]; then pred_low=0; fi
 
-  callosal_bytes=$(wc -c < "$WORKSPACE_STATE" 2>/dev/null | tr -d ' ' || echo "0")
+  callosal_bytes=$(wc -c < "$WORKSPACE_STATE" 2>/dev/null || true)
+  callosal_bytes=$(echo "$callosal_bytes" | tr -d '[:space:]')
+  callosal_bytes=${callosal_bytes:-0}
 
-  summary_debt_count=$(grep -c '"summary_debt_log"' "$WORKSPACE_STATE" 2>/dev/null || echo "0")
-  debt_entries=$(grep -o '"summary_debt_log"[[:space:]]*:[[:space:]]*\[' "$WORKSPACE_STATE" 2>/dev/null || echo "")
-  if [ -n "$debt_entries" ]; then
-    summary_debt_count=$(grep -o '"summary_debt_log"[[:space:]]*:' "$WORKSPACE_STATE" -A 100 2>/dev/null | grep -c '"file"' || echo "0")
-  else
-    summary_debt_count=0
+  summary_debt_count=0
+  if grep -q '"summary_debt_log"' "$WORKSPACE_STATE" 2>/dev/null; then
+    summary_debt_count=$(grep -A 100 '"summary_debt_log"' "$WORKSPACE_STATE" 2>/dev/null | grep -c '"file"' || true)
+    summary_debt_count=$(echo "$summary_debt_count" | tr -d '[:space:]')
+    summary_debt_count=${summary_debt_count:-0}
   fi
 
-  file_count=$(grep -o '"target_files"[[:space:]]*:' "$WORKSPACE_STATE" -A 100 2>/dev/null | grep -c '"' | head -1 || echo "0")
-  tf_block=$(grep -o '"target_files"' "$WORKSPACE_STATE" 2>/dev/null || echo "")
-  if [ -n "$tf_block" ]; then
-    file_count=$(grep -c '\.' "$WORKSPACE_STATE" 2>/dev/null || echo "0")
-  else
-    file_count=0
+  file_count=0
+  if grep -q '"target_files"' "$WORKSPACE_STATE" 2>/dev/null; then
+    file_count=$(grep -A 50 '"target_files"' "$WORKSPACE_STATE" 2>/dev/null | grep -c '\.' || true)
+    file_count=$(echo "$file_count" | tr -d '[:space:]')
+    file_count=${file_count:-0}
   fi
 fi
 

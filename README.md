@@ -6,9 +6,11 @@ A bi-hemispheric AI orchestration framework for Cursor, modeled after Iain McGil
 
 This project implements a dual-agent architecture that pairs:
 
-- **Master (RH):** Claude 4.6 Opus — holistic planning, code review, architectural oversight  
-- **Emissary (LH):** Gemini 2.5 Flash — rapid implementation, TDD, sequential task execution  
+- **Master (RH):** High-reasoning model (default: Claude 4.6 Opus) — holistic planning, code review, architectural oversight  
+- **Emissary (LH):** Fast task-focused model (default: Gemini 3 Flash) — rapid implementation, TDD, sequential task execution  
 - **Corpus Callosum:** A 2% selective signaling protocol that limits inter-agent communication to high-signal metadata
+
+Model assignments are configured in `.cursor/models.json`. To swap models, edit that file or tell the Master which models to use.
 
 Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope-creep and constraint-violation errors.
 
@@ -26,6 +28,7 @@ Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope
 │   │   ├── 04_security.mdc                      # STDIO/MCP security governance
 │   │   ├── 05_model_routing.mdc                 # Tri-model tiering (Opus/Sonnet/Flash)
 │   │   └── 06_ai_navigation.mdc                 # Summary-first file access policy
+│   ├── models.json                                # Model assignments (edit to swap Master/Emissary)
 │   ├── mcp.json                                  # MCP server configuration (local stdio)
 │   ├── hooks/
 │   │   └── grind.ts                              # Inhibitory feedback loop
@@ -211,16 +214,16 @@ After the verifier exits and the Master issues a final signal, summarizes the ac
 
 1. **Use this template** — Click "Use this template" on GitHub, or clone and open in Cursor.
 2. **Run `npm install`** to set up dependencies.
-3. **Enable your models** — In Cursor settings, make sure Claude 4.6 Opus and Gemini 2.5 Flash (or your preferred models) are enabled.
+3. **Check `.cursor/models.json`** — Confirm the listed models are enabled in your Cursor settings (Settings > Models). Edit if you want different models.
 4. **The rules are already configured** — `.cursor/rules/` files load automatically when you open the project. No copy-pasting needed.
 
 ## How to Use It
 
-You work with the **Master (Claude 4.6 Opus)** as your primary agent. When it's time to implement, the Master spawns the **Emissary (Gemini 2.5 Flash)** as a subagent. The Emissary runs autonomously, does the work, and returns its proof. The Master then reviews. You don't manually switch between modes — the handoff happens automatically via the structured protocol.
+You work with the **Master** (your high-reasoning model) as your primary agent. When it's time to implement, the Master spawns the **Emissary** (your fast model) as a subagent. The Emissary runs autonomously, does the work, and returns its proof. The Master then reviews. You don't manually switch between modes — the handoff happens automatically via the structured protocol. Active models are defined in `.cursor/models.json`.
 
 ### Phase 1: Master Plans
 
-With **Claude 4.6 Opus** as your model, describe what you want to build:
+With your Master model selected in Cursor, describe what you want to build:
 
 > Create an architectural plan for [YOUR FEATURE]. Output the plan to `.cursor/plans/gestalt_01.md` with target files, acceptance criteria, and constraints.
 
@@ -228,7 +231,7 @@ The Master researches the codebase, produces a gestalt plan, and generates a JSO
 
 ### Phase 2: Emissary Implements (Subagent)
 
-The Master dispatches the Emissary as a **subagent** with Gemini 2.5 Flash. The subagent receives only the JSON handshake (~2% of context) and executes autonomously — strict TDD, file boundaries, no scope creep. When done, it returns an `implementation_proof` or an `ESCALATE`/`SURPRISE` signal back to the Master.
+The Master dispatches the Emissary as a **subagent** (using the model from `models.json` → `implementer`). The subagent receives only the JSON handshake (~2% of context) and executes autonomously — strict TDD, file boundaries, no scope creep. When done, it returns an `implementation_proof` or an `ESCALATE`/`SURPRISE` signal back to the Master.
 
 You can trigger this by asking the Master:
 
@@ -265,36 +268,41 @@ Set `SNYK_TOKEN` in your environment to enable the `security-audit` MCP server.
 
 ## Changing Models
 
-The template defaults to Claude 4.6 Opus (Master), Gemini 2.5 Flash (Implementer/Verifier), and Claude Sonnet (mid-tier for high-surprise tasks). You can swap in any models that fit the roles. See `05_model_routing.mdc` for when each tier is used.
+All model assignments live in a single file: **`.cursor/models.json`**. No other files need editing.
 
-### Master (Right Hemisphere) — high-reasoning model
+### Quick swap
 
-Best for: architectural planning, code review, contradiction detection, strategy. This is the model you select in Cursor as your primary agent.
+Tell the Master:
 
-To change:
-1. Open `.cursor/rules/01_master_rh.mdc` and update the header (e.g., `Claude 4.6 Opus` → `DeepSeek-R1`).
-2. In Cursor, select your preferred high-reasoning model as the active model.
+> "Use Gemini 3 Flash as the emissary" or "Switch the master to DeepSeek-R1"
 
-Good alternatives: Claude Opus (any version), DeepSeek-R1, Gemini 3 Pro, GPT-4o.
+The Master will update `.cursor/models.json` for you. Or edit it directly:
 
-### Emissary (Left Hemisphere) — fast, task-focused model
+```json
+{
+  "master":      { "name": "Claude 4.6 Opus",   "tier": "high-reasoning" },
+  "implementer": { "name": "Gemini 3 Flash",    "tier": "fast" },
+  "verifier":    { "name": "Gemini 3 Flash",    "tier": "fast" },
+  "mid_tier":    { "name": "Claude Sonnet 4.6",  "tier": "balanced" }
+}
+```
 
-Best for: implementation, TDD, sequential coding, tool calling. This is the model the Master spawns as a subagent.
+After changing `models.json`, make sure the model is enabled in your Cursor settings (Settings > Models).
 
-To change:
-1. Open `.cursor/rules/02_emissary_lh.mdc` and update the header (e.g., `Gemini 2.5 Flash` → `Gemini 3 Flash`).
-2. When dispatching the Emissary subagent, specify the model (e.g., `model: "fast"` in the Task tool).
+### Role guide
 
-Good alternatives: Gemini Flash (any version), Claude Sonnet, GPT-4o-mini, Codestral.
+| Role | Prioritize | Good choices | Avoid |
+|------|-----------|--------------|-------|
+| Master | Deep reasoning, large context, architectural judgment | Claude Opus, DeepSeek-R1, Gemini 3 Pro, GPT-4o | Models that are fast but shallow |
+| Implementer | Speed, low cost, strong tool-use, code generation | Gemini Flash (any), Composer 2 Fast, Claude Sonnet, Codestral | Models that are slow or expensive per token |
+| Verifier | Speed, readonly analysis | Same as implementer (always runs on fast tier) | Expensive models (verifier is high-volume) |
+| Mid-tier | Balanced reasoning + speed | Claude Sonnet, Gemini Pro | Only used for high-surprise escalations |
 
-### What to look for when choosing
+The cost savings scale with the price gap between your Master and Implementer models. The wider the gap, the more you save.
 
-| Role | Prioritize | Avoid |
-|------|-----------|-------|
-| Master | Deep reasoning, large context window, architectural judgment | Models that are fast but shallow |
-| Emissary | Speed, low cost, strong tool-use, code generation | Models that are slow or expensive per token |
+### Comparing model combos
 
-The cost savings scale with the price gap between your Master and Emissary models. The wider the gap, the more you save.
+Run the same tasks with different `models.json` configurations. Each telemetry entry records the active `model_config`. The dashboard (`telemetry.html`) groups entries by combo and shows side-by-side quality, speed, and cost metrics automatically.
 
 ## Key Concepts
 

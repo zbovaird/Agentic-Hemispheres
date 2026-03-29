@@ -1,3 +1,23 @@
 node_modules/
 dist/
 _gitignored/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+
+# IDE
+*.swp
+*.swo
+
+# Runtime telemetry (regenerated per session)
+.cursor/plans/telemetry.jsonl
+.cursor/plans/action_journal.jsonl
+.cursor/plans/archive/
+
+# Logs
+*.log

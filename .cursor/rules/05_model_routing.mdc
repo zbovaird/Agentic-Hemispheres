@@ -10,9 +10,9 @@ The Master selects the appropriate model tier before dispatching each subagent. 
 
 ## Routing Criteria
 
-### Opus (Master tier) -- high-reasoning
+### Master tier -- high-reasoning
 
-Use the Master model (Claude 4.6 Opus or equivalent) for:
+Use the model defined in `.cursor/models.json` → `master.name` for:
 
 - Initial architectural planning and gestalt creation
 - Final review of implementer proof AND verifier report
@@ -31,7 +31,7 @@ Dispatch the implementer subagent with a Sonnet-class model when:
 - The intent touches **more than 5 target files** (cross-cutting refactor)
 - The task involves complex type refactoring or migration logic
 
-Model ID example: `claude-sonnet-4-6` (or current Sonnet equivalent).
+Use the model defined in `.cursor/models.json` → `mid_tier.name`.
 
 ### Flash (Fast tier) -- speed and cost
 

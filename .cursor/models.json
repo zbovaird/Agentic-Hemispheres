@@ -1,0 +1,24 @@
+{
+  "_comment": "Single source of truth for model assignments. Edit this file to swap models -- no other files need to change.",
+  "master": {
+    "name": "Claude 4.6 Opus",
+    "role": "Right Hemisphere -- planning, architecture, code review, strategy",
+    "tier": "high-reasoning"
+  },
+  "implementer": {
+    "name": "Gemini 3 Flash",
+    "role": "Left Hemisphere -- TDD implementation, sequential coding, tool calling",
+    "tier": "fast"
+  },
+  "verifier": {
+    "name": "Gemini 3 Flash",
+    "role": "Validation -- readonly test runner, summary debt checker",
+    "tier": "fast"
+  },
+  "mid_tier": {
+    "name": "Claude Sonnet 4.6",
+    "role": "Escalation -- high-surprise retries, cross-cutting refactors",
+    "tier": "balanced",
+    "when": "Only used when implementer returns SURPRISE with high deviation or ESCALATE requiring re-analysis"
+  }
+}

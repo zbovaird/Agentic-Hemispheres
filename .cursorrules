@@ -4,14 +4,19 @@ This project uses a **bi-hemispheric AI orchestration** model (Master–Emissary
 
 ## Architecture Overview
 
-- **Master (RH):** High-reasoning model (Claude 4.6 Opus). The user's primary agent — handles planning, architecture, code review, and strategy.
-- **Emissary (LH):** Task-focused model (Gemini 2.5 Flash). Spawned by the Master as a subagent for implementation, TDD, and sequential coding. Returns results to the Master automatically.
+- **Master (RH):** High-reasoning model (see `.cursor/models.json` → `master`). The user's primary agent — handles planning, architecture, code review, and strategy.
+- **Emissary (LH):** Task-focused model (see `.cursor/models.json` → `implementer`). Spawned by the Master as a subagent for implementation, TDD, and sequential coding. Returns results to the Master automatically.
 - **Corpus Callosum:** Communication is limited to structured JSON handshakes and signals—never dump full context.
+
+## Model Configuration
+
+All model assignments live in `.cursor/models.json`. Read this file at the start of each session to know which models are active. When the user asks to change a model, update `models.json` — no other files need editing.
 
 ## Project Structure
 
 - `.cursor/rules/` — Agent behavior rules (01_master_rh, 02_emissary_lh, 03_callosum, 04_security, 05_model_routing, 06_ai_navigation)
 - `.cursor/agents/` — Subagent definitions (implementer.md, verifier.md)
+- `.cursor/models.json` — Model assignments (Master, Implementer, Verifier, Mid-tier). Edit this to swap models.
 - `.cursor/mcp.json` — MCP server config (stdio-only: local-filesystem, security-audit)
 - `.cursor/plans/` — Gestalt plans, handshakes, proofs, `workspace_state.json`, and `action_journal.jsonl`
 - `docs/MAP.md` — Layer 1 navigation map; `docs/summaries/` — Layer 3 summary sidecars
@@ -45,9 +50,10 @@ The Master dispatches two subagents sequentially. Subagents do NOT nest.
 
 ## When Using This Template
 
-1. Open the repo in Cursor and select **Claude 4.6 Opus** (or your preferred high-reasoning model) as the active model.
-2. Ensure **Gemini 2.5 Flash** (or your preferred fast model) is enabled — the Master will spawn it as a subagent.
-3. Describe your task to the Master. It plans, dispatches the Emissary subagent, and reviews the result. No manual mode switching needed.
+1. Open the repo in Cursor and select your preferred high-reasoning model as the active model (must match `.cursor/models.json` → `master.name`).
+2. Ensure the fast model listed in `models.json` → `implementer.name` is enabled in Cursor settings.
+3. To swap models, edit `.cursor/models.json` or tell the Master: "Use [model] as the emissary."
+4. Describe your task to the Master. It plans, dispatches the Emissary subagent, and reviews the result. No manual mode switching needed.
 4. For security-audit MCP: set `SNYK_TOKEN` in your environment.
 5. Run `scripts/wt-spawn.sh <task-name> <branch>` for parallel work, then open each worktree in a new Cursor window.
 6. See `High-level plan/high-level plan.md` for the full workflow and signal types.

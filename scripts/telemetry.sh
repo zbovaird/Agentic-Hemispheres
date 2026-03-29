@@ -49,9 +49,15 @@ fi
 
 # --- Workspace state fields ---
 workspace_phase="unknown"
+MODELS_JSON=".cursor/models.json"
 model_master="opus"
 model_implementer="flash"
 model_verifier="flash"
+if [ -f "$MODELS_JSON" ]; then
+  model_master=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "$MODELS_JSON" | head -1 | sed 's/.*: *"//;s/"//' 2>/dev/null || echo "opus")
+  model_implementer=$(grep -A2 '"implementer"' "$MODELS_JSON" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*: *"//;s/"//' 2>/dev/null || echo "flash")
+  model_verifier=$(grep -A2 '"verifier"' "$MODELS_JSON" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*: *"//;s/"//' 2>/dev/null || echo "flash")
+fi
 signal="unknown"
 iterations=0
 pred_total=0

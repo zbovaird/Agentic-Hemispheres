@@ -10,14 +10,15 @@ High-level directory structure with purpose annotations. Read this before explor
 │   │   └── verifier.md          # Readonly validation subagent (Fast)
 │   ├── hooks/
 │   │   └── grind.ts             # Inhibitory feedback loop (onSave: lint + test)
+│   ├── models.json              # Model assignments (edit to swap Master/Emissary)
 │   ├── mcp.json                 # MCP server config (local stdio only)
 │   ├── plans/
 │   │   ├── workspace_state.json # Global Workspace shared state
 │   │   ├── action_journal.jsonl # Action journal (pruned after intent completion)
 │   │   └── gestalt_*.md         # Architectural plans per intent
 │   └── rules/
-│       ├── 01_master_rh.mdc     # Master (Opus) -- planning, orchestration, review
-│       ├── 02_emissary_lh.mdc   # Emissary (Flash) -- TDD, implementation
+│       ├── 01_master_rh.mdc     # Master -- planning, orchestration, review
+│       ├── 02_emissary_lh.mdc   # Emissary -- TDD, implementation
 │       ├── 03_callosum.mdc      # Corpus Callosum -- signaling protocol, state schema
 │       ├── 04_security.mdc      # STDIO mandate, tool schema isolation
 │       ├── 05_model_routing.mdc # Tri-model tiering (Opus/Sonnet/Flash)
@@ -37,6 +38,7 @@ High-level directory structure with purpose annotations. Read this before explor
 │   └── 02-boundary-violation/   # ESCALATE path test (84% cost savings)
 ├── High-level plan/
 │   └── high-level plan.md       # Step-by-step workflow guide
+├── telemetry.html               # Agent performance dashboard (serve locally)
 ├── .cursorrules                 # Template guidance for Cursor
 ├── package.json                 # Node.js dependencies
 ├── tsconfig.json                # TypeScript config
@@ -45,7 +47,8 @@ High-level directory structure with purpose annotations. Read this before explor
 
 ## Key Relationships
 
-- **Master** reads `05_model_routing.mdc` to decide which model the implementer uses.
+- **models.json** is the single source of truth for which models fill which roles.
+- **Master** reads `05_model_routing.mdc` + `models.json` to decide which model the implementer uses.
 - **Implementer** reads the handshake from `plans/` and writes proof back to Master.
 - **Verifier** reads the proof + handshake, runs tests, checks `docs/summaries/` for debt.
 - **workspace_state.json** is the shared blackboard -- both agents read/write it.

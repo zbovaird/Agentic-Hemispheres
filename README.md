@@ -41,11 +41,17 @@ Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope
 │   ├── wt-guard.sh                               # Baseline tagging + rollback for worktrees
 │   ├── telemetry.sh                              # MVP telemetry: test/lint/state metrics
 │   └── prune-context.sh                          # Prune action journal after intent completion
-├── metrics/                                      # Agentic metrics framework (convergence, drift, churn)
-│   ├── compute.ts                                # All derived metric formulas
-│   ├── guards.ts                                 # Threshold-based flags and control signals
-│   ├── config.ts                                 # Tunable thresholds
-│   └── __tests__/                                # Formula and guard tests
+├── metrics/                                      # Agentic metrics framework
+│   ├── intent.ts                                 # Intent lifecycle (startIntent, completeIntent)
+│   ├── compute.ts                                # All derived metric formulas (single module)
+│   ├── guards.ts                                 # Threshold-based flags → control signals
+│   ├── config.ts                                 # Tunable thresholds and convergence weights
+│   ├── record.ts                                 # CLI entry point (called by telemetry.sh)
+│   ├── store.ts                                  # JSONL append/read/query
+│   ├── collect.ts                                # Raw signal collection (git, tests, workspace)
+│   ├── types.ts                                  # IterationRecord, DerivedMetrics, GuardFlag
+│   ├── index.ts                                  # Barrel export
+│   └── __tests__/                                # Formula, guard, and intent tests (46 tests)
 ├── telemetry.html                                 # Agent performance dashboard (serve locally)
 ├── .cursorrules                                  # Cursor template guidance
 └── README.md
@@ -178,7 +184,7 @@ Each entry captures: model config (master/implementer/verifier), test results, l
 
 ### Telemetry Dashboard — `telemetry.html`
 
-A real-time 8-panel dashboard for monitoring agent performance, detecting drift, and comparing model combinations.
+A real-time 9-panel dashboard for monitoring agent performance, detecting drift, and comparing model combinations.
 
 **Panels:**
 
@@ -202,6 +208,31 @@ npx serve . -l 3000
 ```
 
 The dashboard auto-refreshes every 5 seconds. Use the Pause button to freeze. Supports dark and light mode.
+
+### Metrics Framework — `metrics/`
+
+The metrics framework computes per-iteration derived metrics from external signals (git diffs, test results, file touches) and emits guard flags the Master uses for self-correction.
+
+**Intent lifecycle** (`metrics/intent.ts`): Before the Emissary starts work, the Master populates the workspace state with `target_files` and `acceptance_criteria`. This is what the metrics collector reads to compute drift and progress.
+
+```bash
+# Programmatic (the Master calls this at intent start):
+npx tsx -e 'import { startIntent } from "./metrics/intent.ts"; startIntent("feat-login", ["src/auth.ts"], ["Login returns 200"])'
+
+# Mark criteria done as work progresses:
+npx tsx -e 'import { completeAcceptanceCriterion } from "./metrics/intent.ts"; completeAcceptanceCriterion(0)'
+
+# Finalize:
+npx tsx -e 'import { completeIntent } from "./metrics/intent.ts"; completeIntent("APPROVE")'
+```
+
+**Derived metrics** (`metrics/compute.ts`): All formulas in one file. Computes convergence, drift, churn, stability, efficiency, escalation rate, and more. When no acceptance criteria are defined, progress falls back to a test/lint/typecheck proxy (so efficiency doesn't false-zero).
+
+**Guard flags** (`metrics/guards.ts`): Evaluates derived metrics against configurable thresholds and returns a `recommended_action`: `continue`, `re_summary`, `replan`, `escalate`, or `stop`.
+
+**Thresholds** (`metrics/config.ts`): All thresholds are tunable at runtime via `setConfig()`. Defaults include max drift score (30%), max churn ratio (40%), min convergence score (40), and convergence weights.
+
+**Recording** (`npm run metrics:record`): Called automatically by `telemetry.sh`. Reads workspace state + git diff, runs tests, computes derived metrics, evaluates guards, and appends a scored iteration to `.cursor/plans/metrics.jsonl`.
 
 ### Context Pruner — `scripts/prune-context.sh`
 
@@ -228,7 +259,7 @@ With your Master model selected in Cursor, describe what you want to build:
 
 > Create an architectural plan for [YOUR FEATURE]. Output the plan to `.cursor/plans/gestalt_01.md` with target files, acceptance criteria, and constraints.
 
-The Master researches the codebase, produces a gestalt plan, and generates a JSON handshake for the Emissary.
+The Master researches the codebase, produces a gestalt plan, and generates a JSON handshake for the Emissary. It also populates `workspace_state.json` with `target_files` and `acceptance_criteria` (via `metrics/intent.ts`) so the metrics framework can track drift and progress.
 
 ### Phase 2: Emissary Implements (Subagent)
 
@@ -312,22 +343,17 @@ Run the same tasks with different `models.json` configurations. Each telemetry e
 - **JSON Handshake:** Structured hand-off with intent, constraints, target files, and acceptance criteria.
 - **Spiral Formulation:** Right (plan) → Left (implement) → Right (review).
 
-## v2 Capabilities
+## Capabilities
 
-- **Global Workspace (State Object):** Agents read/write `.cursor/plans/workspace_state.json` instead of passing full conversation history.
-- **Active Inference / Predictive Processing:** Emissary predicts outcomes before acting. Low surprise → autonomous; high surprise → Master re-evaluation.
-- **STDIO Security Layer:** All MCP tools run as local stdio child processes. Tool schemas isolated from Master.
-- **Parallel Worktree Execution:** `wt-spawn.sh` for isolated worktrees; Master reviews and merges.
-
-## 2.0 Capabilities
-
-- **Tri-Model Tiering:** Opus for planning/review, Sonnet for high-surprise/cross-cutting work, Flash for standard implementation and verification. Routing criteria defined in `05_model_routing.mdc`.
-- **Subagent Architecture:** Implementer and Verifier as `.cursor/agents/*.md` with YAML frontmatter. Master orchestrates both sequentially (no nesting).
-- **Summary-First Navigation:** Layered file access (Map → README → Sidecar) to reduce exploration tax. Summary debt tracked by verifier.
-- **Worktree Guard:** Baseline tagging and rollback via `wt-guard.sh`.
-- **Agent Telemetry:** Rich metrics (model config, signals, predictions, drift, cost) logged to `telemetry.jsonl`.
-- **Metrics Framework:** Per-iteration derived metrics (convergence, drift, churn, stability, efficiency, escalation) with configurable thresholds and guard flags for self-correction. All formulas centralized in `metrics/compute.ts`.
-- **Performance Dashboard:** `telemetry.html` — 9-panel real-time dashboard with convergence bars, guard flags, drift detection, model comparison mode (radar + table), and dark/light theme.
+- **Global Workspace:** Agents read/write `.cursor/plans/workspace_state.json` (with `target_files`, `acceptance_criteria`, constraints, signals) instead of passing full conversation history.
+- **Active Inference:** Emissary predicts outcomes before acting. Low surprise → autonomous; high surprise → Master re-evaluation.
+- **STDIO Security:** All MCP tools run as local stdio child processes. Tool schemas isolated from Master.
+- **Tri-Model Tiering:** Opus for planning/review, Sonnet for high-surprise/cross-cutting work, Flash for implementation and verification. Routing defined in `05_model_routing.mdc`.
+- **Subagent Architecture:** Implementer and Verifier as `.cursor/agents/*.md`. Master orchestrates both sequentially (no nesting).
+- **Summary-First Navigation:** Layered file access (Map → README → Sidecar). Summary debt tracked by verifier, blocks APPROVE.
+- **Metrics Framework:** Per-iteration derived metrics (convergence, drift, churn, stability, efficiency, escalation) with configurable thresholds and guard flags. Intent lifecycle (`metrics/intent.ts`) populates workspace state so scores are accurate.
+- **Performance Dashboard:** `telemetry.html` — 9-panel real-time dashboard with convergence bars, guard flags, drift detection, model comparison (radar + table), dark/light theme.
+- **Parallel Worktrees:** `wt-spawn.sh` + `wt-guard.sh` for isolated parallel Emissary sessions with baseline tagging and rollback.
 - **Context Pruner:** Action journal summarized and truncated after intent completion to stay under token budget.
 
 ## Validation Results

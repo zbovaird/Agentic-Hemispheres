@@ -1,6 +1,8 @@
 {
   "intent_id": "",
   "phase": "idle",
+  "target_files": [],
+  "acceptance_criteria": [],
   "master_constraints": [],
   "emissary_observations": [],
   "action_items": [],

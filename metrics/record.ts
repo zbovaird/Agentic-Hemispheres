@@ -9,7 +9,7 @@
  * Prints a one-line scorecard to stdout.
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { computeAll } from "./compute.js";
 import { evaluate } from "./guards.js";
@@ -26,6 +26,26 @@ function parseArgs(): Record<string, string> {
   return args;
 }
 
+function readTargetFilesFromGestalt(dir: string = ".cursor/plans"): string[] {
+  try {
+    if (!existsSync(dir)) return [];
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith("gestalt_") && f.endsWith(".md"))
+      .sort()
+      .reverse();
+
+    for (const file of files) {
+      const content = readFileSync(`${dir}/${file}`, "utf-8");
+      const match = content.match(/"target_files"\s*:\s*\[([\s\S]*?)\]/);
+      if (match) {
+        const items = match[1].match(/"([^"]+)"/g);
+        if (items) return items.map((s) => s.replace(/"/g, ""));
+      }
+    }
+  } catch { /* empty */ }
+  return [];
+}
+
 function main() {
   const args = parseArgs();
   const runId = args.run || `run-${Date.now()}`;
@@ -36,9 +56,14 @@ function main() {
   const ws = readWorkspaceState() || {};
   const models = readModelsConfig();
 
-  const planned: string[] =
+  let planned: string[] =
     (ws as Record<string, unknown>)["target_files"] as string[] ||
     ((ws as Record<string, unknown>)["planned_target_files"] as string[]) || [];
+
+  // Fallback: scan .cursor/plans/ for the latest gestalt plan with target_files
+  if (planned.length === 0) {
+    planned = readTargetFilesFromGestalt();
+  }
 
   let touched: string[] = [];
   try {
@@ -80,7 +105,22 @@ function main() {
 
   const signal = ((ws as Record<string, unknown>)["master_signal"] as Record<string, string>)?.signal || null;
 
-  const acceptTotal = ((ws as Record<string, unknown>)["acceptance_criteria"] as string[])?.length || 0;
+  const rawCriteria = (ws as Record<string, unknown>)["acceptance_criteria"];
+  let acceptTotal = 0;
+  let acceptCompleted = 0;
+
+  if (Array.isArray(rawCriteria)) {
+    acceptTotal = rawCriteria.length;
+    if (rawCriteria.length > 0 && typeof rawCriteria[0] === "object" && rawCriteria[0] !== null) {
+      // Structured format: { description, completed }
+      acceptCompleted = rawCriteria.filter(
+        (c: Record<string, unknown>) => c.completed === true
+      ).length;
+    } else {
+      // Legacy string array format -- assume all complete if present
+      acceptCompleted = acceptTotal;
+    }
+  }
 
   const prevIterations = queryByRun(runId).map((s) => s.record);
   const repeatedEdits = getRepeatedEdits(touched, prevIterations);
@@ -99,7 +139,7 @@ function main() {
     touched_files: touched,
     out_of_scope_files: outOfScope,
     acceptance_criteria_total: acceptTotal,
-    acceptance_criteria_completed: acceptTotal,
+    acceptance_criteria_completed: acceptCompleted,
     tests_passed: testsPassed,
     tests_failed: testsFailed,
     lint_passed: lintPassed,

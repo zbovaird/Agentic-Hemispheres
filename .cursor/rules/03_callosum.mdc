@@ -76,6 +76,16 @@ Instead of passing full conversation history between agents, both read from and 
   "intent_id": "feat-auth-endpoint-001",
   "phase": "implementation",
   "model_tier": "flash",
+  "target_files": [
+    "src/controllers/auth.controller.ts",
+    "src/migrations/003_add_sessions.ts",
+    "tests/auth.controller.test.ts"
+  ],
+  "acceptance_criteria": [
+    { "description": "POST /api/auth/session returns 201 with valid JWT", "completed": false },
+    { "description": "Migration is reversible", "completed": false },
+    { "description": "All existing tests still pass", "completed": true }
+  ],
   "master_constraints": [
     "Must use existing AuthMiddleware pattern",
     "No new runtime dependencies"
@@ -104,6 +114,8 @@ Instead of passing full conversation history between agents, both read from and 
 
 ### Fields added in 2.0
 
+- `target_files`: Array of file paths the intent is allowed to touch. The metrics framework uses this to compute drift score — files touched outside this list count as out-of-scope. **Must be populated at intent start** (via `metrics/intent.ts` or manually).
+- `acceptance_criteria`: Array of `{ description, completed }` objects. The metrics framework uses the completed ratio to compute progress. Mark criteria as completed during implementation.
 - `model_tier`: Which model tier was used for the implementer (`flash`, `sonnet`, or `opus`).
 - `summary_debt_log`: Array of files whose Layer 3 summary sidecars are stale or missing after modification. The verifier populates this; the Master must clear it before APPROVE.
 - `verifier_report`: Structured output from the verifier subagent, embedded in the workspace state for the Master's final review.

@@ -49,7 +49,16 @@ export function computeAll(
 // --- Progress ---
 
 export function progressDelta(r: IterationRecord): number {
-  if (r.acceptance_criteria_total === 0) return 0;
+  if (r.acceptance_criteria_total === 0) {
+    // No structured criteria -- use external signals as progress proxy
+    let proxy = 0;
+    if (r.tests_passed > 0 && r.tests_failed === 0) proxy += 0.5;
+    if (r.lint_passed) proxy += 0.25;
+    if (r.typecheck_passed) proxy += 0.25;
+    proxy -= Math.min(0.5, r.regression_count * 0.1);
+    return clamp(proxy, 0, 1);
+  }
+
   const ratio = r.acceptance_criteria_completed / r.acceptance_criteria_total;
   const testBonus = r.tests_passed > 0 && r.tests_failed === 0 ? 0.1 : 0;
   const lintBonus = r.lint_passed ? 0.05 : 0;

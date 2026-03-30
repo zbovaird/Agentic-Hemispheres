@@ -73,9 +73,62 @@ describe("progressDelta", () => {
     expect(delta).toBeGreaterThanOrEqual(1.0);
   });
 
-  it("returns 0 when no criteria exist", () => {
-    const r = makeRecord({ acceptance_criteria_total: 0, acceptance_criteria_completed: 0 });
+  it("uses test/lint/typecheck proxy when no criteria exist and all pass", () => {
+    const r = makeRecord({
+      acceptance_criteria_total: 0,
+      acceptance_criteria_completed: 0,
+      tests_passed: 10,
+      tests_failed: 0,
+      lint_passed: true,
+      typecheck_passed: true,
+    });
+    expect(progressDelta(r)).toBe(1.0);
+  });
+
+  it("uses partial proxy when some signals fail", () => {
+    const r = makeRecord({
+      acceptance_criteria_total: 0,
+      acceptance_criteria_completed: 0,
+      tests_passed: 5,
+      tests_failed: 2,
+      lint_passed: true,
+      typecheck_passed: false,
+    });
+    const delta = progressDelta(r);
+    expect(delta).toBe(0.25);
+  });
+
+  it("proxy returns 0 when no tests pass and lint/typecheck fail", () => {
+    const r = makeRecord({
+      acceptance_criteria_total: 0,
+      acceptance_criteria_completed: 0,
+      tests_passed: 0,
+      tests_failed: 3,
+      lint_passed: false,
+      typecheck_passed: false,
+    });
     expect(progressDelta(r)).toBe(0);
+  });
+
+  it("proxy penalizes regressions", () => {
+    const clean = makeRecord({
+      acceptance_criteria_total: 0,
+      acceptance_criteria_completed: 0,
+      tests_passed: 5,
+      tests_failed: 0,
+      lint_passed: true,
+      typecheck_passed: true,
+    });
+    const regressed = makeRecord({
+      acceptance_criteria_total: 0,
+      acceptance_criteria_completed: 0,
+      tests_passed: 5,
+      tests_failed: 0,
+      lint_passed: true,
+      typecheck_passed: true,
+      regression_count: 3,
+    });
+    expect(progressDelta(regressed)).toBeLessThan(progressDelta(clean));
   });
 
   it("penalizes regressions", () => {

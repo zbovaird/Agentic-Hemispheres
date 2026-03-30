@@ -4,3 +4,4 @@ export * from "./store.js";
 export * from "./collect.js";
 export * from "./compute.js";
 export * from "./guards.js";
+export * from "./intent.js";

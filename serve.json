@@ -1,0 +1,13 @@
+{
+  "public": ".",
+  "symlinks": true,
+  "cleanUrls": false,
+  "headers": [
+    {
+      "source": "**/*",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}

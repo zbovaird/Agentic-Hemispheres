@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zbovaird/Agentic-Hemispheres/schemas/workspace_state.schema.json",
+  "title": "Agentic Hemispheres workspace_state",
+  "type": "object",
+  "required": ["schema_version", "intent_id", "phase", "target_files", "acceptance_criteria"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "intent_id": { "type": "string" },
+    "phase": { "type": "string" },
+    "model_tier": { "type": "string" },
+    "target_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "completed"],
+        "properties": {
+          "description": { "type": "string" },
+          "completed": { "type": "boolean" }
+        }
+      }
+    },
+    "master_constraints": { "type": "array", "items": { "type": "string" } },
+    "emissary_observations": { "type": "array", "items": { "type": "string" } },
+    "action_items": { "type": "array", "items": { "type": "string" } },
+    "prediction_log": { "type": "array" },
+    "summary_debt_pending": { "type": "array", "items": { "type": "string" } },
+    "summary_debt_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "status"],
+        "properties": {
+          "file": { "type": "string" },
+          "status": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "workflow_policy": {
+      "type": "object",
+      "properties": {
+        "clarification_threshold": { "type": "number" },
+        "max_summary_debt": { "type": "number" },
+        "configured_by_user": { "type": "boolean" }
+      }
+    },
+    "verifier_report": {
+      "oneOf": [{ "type": "null" }, { "type": "object" }]
+    },
+    "master_signal": { "type": "object" }
+  },
+  "additionalProperties": true
+}

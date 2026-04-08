@@ -1,3 +1,6 @@
+// Legacy experimental hook (TypeScript onSave shape). For Cursor 3+, prefer
+// `.cursor/hooks.json` + `scripts/cursor-after-file-edit.mjs` (official hooks API).
+//
 // Inhibitory feedback loop for the Emissary (LH)
 //
 // Automatically re-feeds lint/test failures back to the Emissary

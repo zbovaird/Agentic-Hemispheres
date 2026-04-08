@@ -16,12 +16,19 @@ To prevent "context pollution," communication between agents is limited to high-
   - **Emissary writes:** Action Items, Observations
   - **Master writes:** Contextual Constraints, Strategy Shifts
 
+## Runtime transport format
+
+- **`schema_version`:** Every handshake payload and the shared workspace state file must include `"schema_version": "1.0"` (bump only when breaking shape changes; see README template version policy).
+- **JSON-only across the corpus callosum:** Master ↔ Emissary payloads that must be parsed or stored (`intent_id`, signals, `implementation_proof`, workspace state updates) are **JSON**. Do not use YAML, TOML, or XML as the interchange format for those artifacts.
+- **Model-specific prompt structure:** The Master may use XML or other internal structuring **inside its own prompts** for clarity. That formatting must not replace JSON for cross-agent payloads.
+
 ## The JSON Handshake
 
 All hand-offs between Master and Emissary must follow this structure:
 
 ```json
 {
+  "schema_version": "1.0",
   "intent_id": "feat-auth-endpoint-001",
   "architectural_constraint": "Must use existing AuthMiddleware pattern; no new dependencies without Master approval.",
   "target_files": [
@@ -73,6 +80,7 @@ Instead of passing full conversation history between agents, both read from and 
 
 ```json
 {
+  "schema_version": "1.0",
   "intent_id": "feat-auth-endpoint-001",
   "phase": "implementation",
   "model_tier": "flash",
@@ -101,6 +109,13 @@ Instead of passing full conversation history between agents, both read from and 
   "prediction_log": [
     { "step": "run-migration", "predicted": "Table created successfully", "actual": "Table created successfully", "deviation": "low" }
   ],
+  "summary_debt_pending": [
+    "Refresh docs/summaries/foo.ts.summary.md after router refactor (deferred)"
+  ],
+  "workflow_policy": {
+    "clarification_threshold": 5,
+    "configured_by_user": false
+  },
   "summary_debt_log": [
     { "file": "src/controllers/auth.controller.ts", "status": "stale", "reason": "Modified in this intent but summary not updated" }
   ],
@@ -114,9 +129,12 @@ Instead of passing full conversation history between agents, both read from and 
 
 ### Fields added in 2.0
 
+- `schema_version`: Workspace and handshake schema version string (currently `"1.0"`).
 - `target_files`: Array of file paths the intent is allowed to touch. The metrics framework uses this to compute drift score — files touched outside this list count as out-of-scope. **Must be populated at intent start** (via `metrics/intent.ts` or manually).
 - `acceptance_criteria`: Array of `{ description, completed }` objects. The metrics framework uses the completed ratio to compute progress. Mark criteria as completed during implementation.
 - `model_tier`: Which model tier was used for the implementer (`flash`, `sonnet`, or `opus`).
+- `summary_debt_pending`: Free-text follow-ups when summary work is deferred (Master-owned); distinct from structured `summary_debt_log`.
+- `workflow_policy`: Tunable bounds for the harness (e.g. `clarification_threshold`, optional `max_summary_debt`, `configured_by_user`).
 - `summary_debt_log`: Array of files whose Layer 3 summary sidecars are stale or missing after modification. The verifier populates this; the Master must clear it before APPROVE.
 - `verifier_report`: Structured output from the verifier subagent, embedded in the workspace state for the Master's final review.
 

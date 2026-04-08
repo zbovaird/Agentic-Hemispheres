@@ -8,8 +8,9 @@ High-level directory structure with purpose annotations. Read this before explor
 │   ├── agents/                  # Subagent definitions (implementer, verifier)
 │   │   ├── implementer.md       # TDD implementation subagent (Flash/Sonnet)
 │   │   └── verifier.md          # Readonly validation subagent (Fast)
+│   ├── hooks.json               # Official Cursor hooks (afterFileEdit)
 │   ├── hooks/
-│   │   └── grind.ts             # Inhibitory feedback loop (onSave: lint + test)
+│   │   └── grind.ts             # Legacy onSave experiment (prefer hooks.json)
 │   ├── models.json              # Model assignments (edit to swap Master/Emissary)
 │   ├── mcp.json                 # MCP server config (local stdio only)
 │   ├── plans/
@@ -25,12 +26,19 @@ High-level directory structure with purpose annotations. Read this before explor
 │       └── 06_ai_navigation.mdc # Summary-first file access policy
 ├── docs/
 │   ├── MAP.md                   # This file (Layer 1 navigation)
+│   ├── summary-policy.md        # When and how to maintain summaries
+│   ├── cursor3-agents-playbook.md  # Cursor 3 Agents Window, worktrees, /best-of-n
+│   ├── harness-validation.md    # verify:harness and CI expectations
+│   ├── repository-structure.md  # Optional (onboard-imported-repo)
 │   └── summaries/               # Layer 3 summary sidecars per source file
 ├── scripts/
 │   ├── wt-spawn.sh              # Create git worktrees for parallel Emissaries
 │   ├── wt-guard.sh              # Baseline tagging + rollback for worktrees
 │   ├── telemetry.sh             # MVP telemetry: test/lint/state metrics
 │   └── prune-context.sh         # Prune action journal after intent completion
+├── schemas/
+│   ├── workspace_state.schema.json  # JSON Schema for workspace_state.json
+│   └── handshake.schema.json        # Optional schema for Corpus Callosum handshake shape
 ├── metrics/                     # Agentic metrics framework
 │   ├── intent.ts                # Intent lifecycle (startIntent, completeIntent)
 │   ├── types.ts                 # IterationRecord, DerivedMetrics, GuardFlag types
@@ -50,6 +58,13 @@ High-level directory structure with purpose annotations. Read this before explor
 ├── tsconfig.json                # TypeScript config
 └── vitest.config.ts             # Test runner config
 ```
+
+## Suggested first reads
+
+1. [`README.md`](../README.md) — harness workflow and template version (`TEMPLATE_VERSION`).
+2. [`docs/summary-policy.md`](summary-policy.md) — summary lifecycle and thresholds.
+3. [`.cursor/rules/03_callosum.mdc`](../.cursor/rules/03_callosum.mdc) — JSON handshake and workspace state.
+4. [`docs/cursor3-agents-playbook.md`](cursor3-agents-playbook.md) — Cursor 3 Agents Window, worktrees, `/best-of-n`, `Await`.
 
 ## Key Relationships
 

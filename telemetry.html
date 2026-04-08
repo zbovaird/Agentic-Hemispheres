@@ -986,20 +986,26 @@ function renderDebt() {
   const list = document.getElementById('debtList');
   const badge = document.getElementById('debtBadge');
   const debtLog = workspaceState.summary_debt_log || [];
+  const pending = workspaceState.summary_debt_pending || [];
+  const total = debtLog.length + pending.length;
 
-  badge.textContent = debtLog.length;
-  if (debtLog.length === 0) {
+  badge.textContent = total;
+  if (total === 0) {
     badge.className = 'panel-badge badge-green';
     list.innerHTML = '<div class="no-data">No summary debt</div>';
     return;
   }
 
-  badge.className = debtLog.length > 3 ? 'panel-badge badge-red' : 'panel-badge badge-amber';
-  list.innerHTML = debtLog.map(item => {
+  badge.className = total > 3 ? 'panel-badge badge-red' : 'panel-badge badge-amber';
+  const pendingRows = pending.map(text =>
+    `<li class="debt-item"><span class="debt-file">(pending)</span><span class="debt-reason">${escapeHtml(text)}</span></li>`
+  );
+  const logRows = debtLog.map(item => {
     const file = typeof item === 'string' ? item : (item.file || item.path || JSON.stringify(item));
     const reason = (typeof item === 'object' && item.reason) ? item.reason : 'stale or missing';
     return `<li class="debt-item"><span class="debt-file">${escapeHtml(file)}</span><span class="debt-reason">${escapeHtml(reason)}</span></li>`;
-  }).join('');
+  });
+  list.innerHTML = [...pendingRows, ...logRows].join('');
 }
 
 // Panel 8: Workspace State
@@ -1022,6 +1028,7 @@ function renderState() {
   const verdict = ws.verifier_report?.verdict || '--';
 
   grid.innerHTML = `
+    <span class="state-key">schema</span><span class="state-value">${escapeHtml(ws.schema_version || '--')}</span>
     <span class="state-key">intent</span><span class="state-value">${escapeHtml(ws.intent_id)}</span>
     <span class="state-key">phase</span><span class="state-value">${escapeHtml(ws.phase || '--')}</span>
     <span class="state-key">model_tier</span><span class="state-value">${escapeHtml(modelTier)}</span>

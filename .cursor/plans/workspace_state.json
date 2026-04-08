@@ -1,4 +1,5 @@
 {
+  "schema_version": "1.0",
   "intent_id": "",
   "phase": "idle",
   "target_files": [],
@@ -6,5 +7,12 @@
   "master_constraints": [],
   "emissary_observations": [],
   "action_items": [],
-  "prediction_log": []
+  "prediction_log": [],
+  "summary_debt_pending": [],
+  "summary_debt_log": [],
+  "workflow_policy": {
+    "clarification_threshold": 5,
+    "configured_by_user": false
+  },
+  "verifier_report": null
 }

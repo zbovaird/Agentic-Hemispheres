@@ -1,58 +1,17 @@
 # Agentic Hemispheres — Cursor Template
 
-This project uses a **bi-hemispheric AI orchestration** model (Master–Emissary) for Cursor. When you use this repo as a template, the AI will follow these conventions.
+**Authoritative rules** live in [`.cursor/rules/`](.cursor/rules/) (especially `03_callosum.mdc`, `06_ai_navigation.mdc`). This file is a short pointer so the template stays maintainable—avoid duplicating full handshake JSON here.
 
-## Architecture Overview
+## In one minute
 
-- **Master (RH):** High-reasoning model (see `.cursor/models.json` → `master`). The user's primary agent — handles planning, architecture, code review, and strategy.
-- **Emissary (LH):** Task-focused model (see `.cursor/models.json` → `implementer`). Spawned by the Master as a subagent for implementation, TDD, and sequential coding. Returns results to the Master automatically.
-- **Corpus Callosum:** Communication is limited to structured JSON handshakes and signals—never dump full context.
+- **Master:** high-reasoning model from [`.cursor/models.json`](.cursor/models.json) → `master`.
+- **Emissary:** implementer subagent ([`.cursor/agents/implementer.md`](.cursor/agents/implementer.md)); **Verifier:** [`verifier.md`](.cursor/agents/verifier.md). Subagents do not nest.
+- **Transport:** JSON handshakes + [`.cursor/plans/workspace_state.json`](.cursor/plans/workspace_state.json) with `schema_version` — see Corpus Callosum rule.
+- **Hooks:** [`.cursor/hooks.json`](.cursor/hooks.json) runs post-edit validation via [`scripts/cursor-after-file-edit.mjs`](scripts/cursor-after-file-edit.mjs).
 
-## Model Configuration
+## Docs
 
-All model assignments live in `.cursor/models.json`. Read this file at the start of each session to know which models are active. When the user asks to change a model, update `models.json` — no other files need editing.
+- [docs/MAP.md](docs/MAP.md) — start here.
+- [docs/cursor3-agents-playbook.md](docs/cursor3-agents-playbook.md) — Cursor 3 Agents Window, worktrees, `/best-of-n`, `Await`.
 
-## Project Structure
-
-- `.cursor/rules/` — Agent behavior rules (01_master_rh, 02_emissary_lh, 03_callosum, 04_security, 05_model_routing, 06_ai_navigation)
-- `.cursor/agents/` — Subagent definitions (implementer.md, verifier.md)
-- `.cursor/models.json` — Model assignments (Master, Implementer, Verifier, Mid-tier). Edit this to swap models.
-- `.cursor/mcp.json` — MCP server config (stdio-only: local-filesystem, security-audit)
-- `.cursor/plans/` — Gestalt plans, handshakes, proofs, `workspace_state.json`, and `action_journal.jsonl`
-- `docs/MAP.md` — Layer 1 navigation map; `docs/summaries/` — Layer 3 summary sidecars
-- `scripts/wt-spawn.sh` — Spawn parallel git worktrees for concurrent Emissary sessions
-- `scripts/wt-guard.sh` — Baseline tagging and rollback for worktrees
-- `scripts/telemetry.sh` — MVP telemetry collection
-- `scripts/prune-context.sh` — Action journal pruner
-- `metrics/` — Agentic metrics framework (convergence, drift, churn, guards)
-
-## Coding Standards
-
-1. **TDD:** Write tests first, confirm failure, then implement.
-2. **File Boundary:** Only modify files listed in the Master's `target_files` for a given intent.
-3. **No Scope Creep:** Do not make "while-I'm-here" improvements outside the intent.
-4. **Data Compression:** Summarize raw outputs to ≤20 lines before sending to Master.
-5. **STDIO Only:** MCP tools run as local child processes. No remote MCP URLs unless authorized.
-
-## Handshake Protocol
-
-Master issues a JSON handshake with `intent_id`, `architectural_constraint`, `target_files`, and `acceptance_criteria`. Emissary returns an `implementation_proof` or `ESCALATE`/`SURPRISE` signal. Master reviews and issues `APPROVE` or `SUPPRESS`.
-
-## Orchestration (2.0)
-
-The Master dispatches two subagents sequentially. Subagents do NOT nest.
-
-1. Master plans and creates handshake.
-2. Master reads `05_model_routing.mdc` to select model tier (Flash default, Sonnet for high-surprise).
-3. Master dispatches `/implementer` subagent. It returns proof/ESCALATE/SURPRISE.
-4. Master dispatches `/verifier` subagent (always Fast, readonly). It returns pass/fail + summary debt.
-5. Master issues APPROVE or SUPPRESS based on both reports.
-
-## When Using This Template
-
-1. Open the repo in Cursor and select your preferred high-reasoning model as the active model (must match `.cursor/models.json` → `master.name`).
-2. Ensure the fast model listed in `models.json` → `implementer.name` is enabled in Cursor settings.
-3. To swap models, edit `.cursor/models.json` or tell the Master: "Use [model] as the emissary."
-4. Describe your task to the Master. It plans, dispatches the Emissary subagent, and reviews the result. No manual mode switching needed.
-4. For security-audit MCP: set `SNYK_TOKEN` in your environment.
-5. Run `scripts/wt-spawn.sh <task-name> <branch>` for parallel work, then open each worktree in a new Cursor window.
+**Template version:** see `TEMPLATE_VERSION` in [README.md](README.md).

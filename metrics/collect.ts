@@ -75,6 +75,35 @@ export function readWorkspaceState(
   }
 }
 
+/** Summary debt and workflow fields from workspace state (for metrics / telemetry). */
+export interface WorkspaceHarnessSignals {
+  summary_debt_pending_count: number;
+  summary_debt_log_count: number;
+  clarification_threshold: number;
+}
+
+export function readWorkspaceHarnessSignals(
+  ws: Record<string, unknown> | null
+): WorkspaceHarnessSignals {
+  if (!ws) {
+    return {
+      summary_debt_pending_count: 0,
+      summary_debt_log_count: 0,
+      clarification_threshold: 5,
+    };
+  }
+  const pending = ws["summary_debt_pending"];
+  const log = ws["summary_debt_log"];
+  const wp = ws["workflow_policy"] as Record<string, unknown> | undefined;
+  const th = wp?.["clarification_threshold"];
+  return {
+    summary_debt_pending_count: Array.isArray(pending) ? pending.length : 0,
+    summary_debt_log_count: Array.isArray(log) ? log.length : 0,
+    clarification_threshold:
+      typeof th === "number" && th > 0 ? th : 5,
+  };
+}
+
 export function readModelsConfig(
   path: string = ".cursor/models.json"
 ): IterationRecord["model_config"] {

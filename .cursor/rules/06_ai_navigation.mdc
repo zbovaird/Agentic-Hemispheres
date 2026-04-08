@@ -8,29 +8,50 @@ alwaysApply: true
 
 Agents waste tokens reading irrelevant files. This rule defines a layered navigation strategy to reduce the "exploration tax."
 
-## Navigation Layers
+## Four summary layers
 
-### Layer 1: Map (read first)
+### Layer 1: Repo map (read first)
 
-Before exploring the codebase, read `docs/MAP.md`. It contains a high-level directory map with purpose annotations. This orients the agent without opening any source files.
+Before exploring the codebase, read [`docs/MAP.md`](docs/MAP.md). It contains a high-level directory map with purpose annotations. Optionally read [`docs/repository-structure.md`](docs/repository-structure.md) after onboarding an imported repo.
 
-### Layer 2: READMEs and summaries (read second)
+### Layer 2: Domain or folder summaries
 
-Before opening any file longer than 300 lines, check for:
+Before opening many files in a large or mixed-purpose folder, look for a `README.md` in that folder or a short architecture note. This layer answers what the area owns, which files matter, and local invariants.
+
+### Layer 3: Large file orientation and sidecars
+
+Before opening any file longer than ~300 lines (or roughly 12–20 KB), check for:
+
 - A `README.md` in the same directory
 - A summary sidecar at `docs/summaries/<filename>.summary.md`
+- A brief orientation block at the top of the file (when comments are appropriate)
 
-If either exists, read it first. It may contain enough context to avoid opening the full file.
+If a summary answers the routing question, do not read the full source yet unless implementation or debugging requires it.
 
-### Layer 3: Summary sidecars (maintained by verifier)
+### Layer 4: Shared state summaries
 
-For key source files, summary sidecars live at `docs/summaries/<filename>.summary.md`. These contain:
-- Purpose of the file (1-2 sentences)
-- Key exports and their signatures
-- Dependencies and relationships
-- Last verified intent ID
+Task history and constraints live in [`.cursor/plans/workspace_state.json`](.cursor/plans/workspace_state.json) and gestalt plans under [`.cursor/plans/`](.cursor/plans/). Use these so the Master does not need full chat replay.
 
-The verifier subagent checks that these are up to date after each implementation cycle. Stale summaries are reported as "summary debt."
+## Placement heuristics (guidance, not hard gates)
+
+- Add or refresh a **folder README** when a new domain appears, a folder mixes multiple concerns, or it has roughly 8–12+ meaningful files.
+- Add a **sidecar or orientation** when a file is large, dense, generated/exported, or repeatedly used as reference material.
+- Do **not** add summaries for tiny files that are cheaper to read than to maintain, or for native JSON where the summary cannot live cleanly beside the data.
+
+Full policy and anti-patterns: [`docs/summary-policy.md`](docs/summary-policy.md).
+
+## Lifecycle
+
+- **Bootstrap:** Ensure Layer 1 exists (`MAP.md`, optional `repository-structure.md`) when the project starts from this template.
+- **Imported repo:** Run `npm run onboard:imported-repo`, then fill gaps before deep implementation; record deferred summary work in `summary_debt_pending` in workspace state if needed.
+- **Feature work:** If the change creates a new architectural area, add or refresh the nearest summary in the same change when practical.
+- **Review:** Stale or misleading summaries are review debt; fix or record in `summary_debt_pending`.
+- **Refactor:** Merge, move, or delete summaries when code ownership moves.
+
+## Bicameral responsibilities
+
+- **Master:** Decides where summary coverage is useful; includes summary maintenance in acceptance criteria when shape changes materially; tracks deferred items in `summary_debt_pending`.
+- **Emissary:** Updates the nearest relevant summary when structure or invariants change; avoids summary sprawl outside `target_files` unless escalated.
 
 ## When to Skip Navigation
 
@@ -40,4 +61,4 @@ The verifier subagent checks that these are up to date after each implementation
 
 ## Summary Debt
 
-If a source file is modified but its Layer 3 summary is not updated, this is "summary debt." The verifier reports it. The Master must ensure debt is cleared before issuing APPROVE.
+If a source file is modified but the Layer 3 summary is not updated, that is "summary debt." The verifier reports structured items in `summary_debt_log`. The Master may also record free-text follow-ups in `summary_debt_pending`. The Master must ensure debt is cleared or explicitly deferred before issuing APPROVE.

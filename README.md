@@ -2,6 +2,8 @@
 
 A bi-hemispheric AI orchestration framework for Cursor, modeled after Iain McGilchrist's Master-Emissary paradigm. Use this repo as a template to run a high-reasoning "Master" model for strategy and a task-focused "Emissary" model for execution—with structured handoffs that reduce token cost and context pollution.
 
+**TEMPLATE_VERSION:** `0.2.0` — bump when `workspace_state.json` / handshake `schema_version` or Corpus Callosum rules change in a breaking way; keep aligned with `package.json` `version`.
+
 ## Overview
 
 This project implements a dual-agent architecture that pairs:
@@ -30,8 +32,9 @@ Validated results: ~75–84% cost reduction vs monolithic Opus, with fewer scope
 │   │   └── 06_ai_navigation.mdc                 # Summary-first file access policy
 │   ├── models.json                                # Model assignments (edit to swap Master/Emissary)
 │   ├── mcp.json                                  # MCP server configuration (local stdio)
+│   ├── hooks.json                              # Official Cursor hooks (afterFileEdit → grind script)
 │   ├── hooks/
-│   │   └── grind.ts                              # Inhibitory feedback loop
+│   │   └── grind.ts                              # Legacy TS onSave experiment (prefer hooks.json)
 │   └── plans/                                    # Gestalt plans, workspace state, action journal
 ├── docs/
 │   ├── MAP.md                                    # Layer 1 navigation map
@@ -246,8 +249,13 @@ After the verifier exits and the Master issues a final signal, summarizes the ac
 
 1. **Use this template** — Click "Use this template" on GitHub, or clone and open in Cursor.
 2. **Run `npm install`** to set up dependencies.
-3. **Check `.cursor/models.json`** — Confirm the listed models are enabled in your Cursor settings (Settings > Models). Edit if you want different models.
-4. **The rules are already configured** — `.cursor/rules/` files load automatically when you open the project. No copy-pasting needed.
+3. **Run `npm run verify:harness`** — Confirms required `.cursor/` files, `docs/MAP.md`, `metrics/intent.ts`, and a valid `.cursor/plans/workspace_state.json` exist.
+4. **Imported an existing repo?** Run `npm run onboard:imported-repo` to generate `docs/repository-structure.md` and a summary follow-up hint in workspace state.
+5. **Check `.cursor/models.json`** — Confirm the listed models are enabled in your Cursor settings (Settings > Models). Edit if you want different models.
+6. **The rules are already configured** — `.cursor/rules/` files load automatically when you open the project. No copy-pasting needed.
+7. **Cursor hooks** — `.cursor/hooks.json` runs `scripts/cursor-after-file-edit.mjs` after edits (lint + tests; escalation logged to `.cursor/plans/action_journal.jsonl` at the clarification threshold). Legacy `.cursor/hooks/grind.ts` is experimental only.
+
+See **Cursor 3** workflows (Agents Window, `/worktree`, `/best-of-n`, `Await`) in [`docs/cursor3-agents-playbook.md`](docs/cursor3-agents-playbook.md).
 
 ## How to Use It
 

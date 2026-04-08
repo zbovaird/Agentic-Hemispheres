@@ -14,7 +14,13 @@ import { execSync } from "node:child_process";
 import { computeAll } from "./compute.js";
 import { evaluate } from "./guards.js";
 import { appendRecord, queryByRun } from "./store.js";
-import { classifyFiles, readModelsConfig, readWorkspaceState, getRepeatedEdits } from "./collect.js";
+import {
+  classifyFiles,
+  readModelsConfig,
+  readWorkspaceState,
+  readWorkspaceHarnessSignals,
+  getRepeatedEdits,
+} from "./collect.js";
 import type { IterationRecord, ScoredIteration } from "./types.js";
 
 function parseArgs(): Record<string, string> {
@@ -54,6 +60,7 @@ function main() {
   const actor = (args.actor as IterationRecord["actor_type"]) || "implementer";
 
   const ws = readWorkspaceState() || {};
+  const harness = readWorkspaceHarnessSignals(ws as Record<string, unknown>);
   const models = readModelsConfig();
 
   let planned: string[] =
@@ -104,6 +111,9 @@ function main() {
   const iterations = Array.isArray(predLog) ? predLog.length : 0;
 
   const signal = ((ws as Record<string, unknown>)["master_signal"] as Record<string, string>)?.signal || null;
+
+  const pendingCount = harness.summary_debt_pending_count;
+  const debtLogCount = harness.summary_debt_log_count;
 
   const rawCriteria = (ws as Record<string, unknown>)["acceptance_criteria"];
   let acceptTotal = 0;
@@ -161,7 +171,10 @@ function main() {
     escalation_reason: signal === "ESCALATE" ? "Agent escalated" : null,
     signal: signal as IterationRecord["signal"],
     model_config: models,
-    notes: null,
+    notes:
+      pendingCount > 0 || debtLogCount > 0
+        ? `summary_debt_pending:${pendingCount};summary_debt_log:${debtLogCount}`
+        : null,
   };
 
   const derived = computeAll(record, prevIterations);

@@ -6,6 +6,8 @@ import {
   completeAllCriteria,
   completeIntent,
   readState,
+  appendSummaryDebtPending,
+  WORKSPACE_SCHEMA_VERSION,
 } from "../intent.js";
 
 const TEST_DIR = ".cursor/plans/__test_intent__";
@@ -36,10 +38,29 @@ describe("startIntent", () => {
     expect(state.acceptance_criteria[0].description).toBe("Login returns 200");
     expect(state.acceptance_criteria[0].completed).toBe(false);
     expect(state.master_constraints).toEqual(["No new dependencies"]);
+    expect(state.schema_version).toBe(WORKSPACE_SCHEMA_VERSION);
+    expect(state.summary_debt_pending).toEqual([]);
+    expect(state.summary_debt_log).toEqual([]);
+    expect(state.workflow_policy.clarification_threshold).toBe(5);
+    expect(state.verifier_report).toBe(null);
 
     const onDisk = JSON.parse(readFileSync(TEST_PATH, "utf-8"));
     expect(onDisk.intent_id).toBe("feat-login-001");
     expect(onDisk.target_files).toEqual(["src/auth.ts", "tests/auth.test.ts"]);
+    expect(onDisk.schema_version).toBe(WORKSPACE_SCHEMA_VERSION);
+  });
+});
+
+describe("appendSummaryDebtPending", () => {
+  it("appends unique notes", () => {
+    startIntent("t1", ["a.ts"], ["x"], [], TEST_PATH);
+    appendSummaryDebtPending("Add README for src/foo", TEST_PATH);
+    appendSummaryDebtPending("Add README for src/foo", TEST_PATH);
+    const state = appendSummaryDebtPending("Second item", TEST_PATH);
+    expect(state.summary_debt_pending).toEqual([
+      "Add README for src/foo",
+      "Second item",
+    ]);
   });
 });
 
@@ -88,6 +109,8 @@ describe("readState", () => {
     expect(state.intent_id).toBe("");
     expect(state.phase).toBe("idle");
     expect(state.target_files).toEqual([]);
+    expect(state.schema_version).toBe(WORKSPACE_SCHEMA_VERSION);
+    expect(Array.isArray(state.summary_debt_pending)).toBe(true);
   });
 
   it("reads existing state", () => {

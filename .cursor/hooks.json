@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "node scripts/cursor-after-file-edit.mjs"
+      }
+    ]
+  }
+}

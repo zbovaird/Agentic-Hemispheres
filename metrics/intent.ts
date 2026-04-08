@@ -10,21 +10,54 @@ import { dirname } from "node:path";
 
 const WS_PATH = ".cursor/plans/workspace_state.json";
 
-interface AcceptanceCriterion {
+export const WORKSPACE_SCHEMA_VERSION = "1.0";
+
+export interface AcceptanceCriterion {
   description: string;
   completed: boolean;
 }
 
-interface WorkspaceState {
+export interface SummaryDebtLogEntry {
+  file: string;
+  status: string;
+  reason?: string;
+}
+
+export interface VerifierReportShape {
+  verdict: string;
+  tests?: { passed: number; failed: number; total: number };
+  summary_debt?: string[];
+}
+
+export interface WorkflowPolicy {
+  clarification_threshold: number;
+  max_summary_debt?: number;
+  configured_by_user?: boolean;
+}
+
+export interface WorkspaceState {
+  schema_version: string;
   intent_id: string;
   phase: string;
+  model_tier?: string;
   target_files: string[];
   acceptance_criteria: AcceptanceCriterion[];
   master_constraints: string[];
   emissary_observations: string[];
   action_items: string[];
   prediction_log: unknown[];
+  summary_debt_pending: string[];
+  summary_debt_log: SummaryDebtLogEntry[];
+  workflow_policy: WorkflowPolicy;
+  verifier_report: VerifierReportShape | null;
   [key: string]: unknown;
+}
+
+function defaultWorkflowPolicy(): WorkflowPolicy {
+  return {
+    clarification_threshold: 5,
+    configured_by_user: false,
+  };
 }
 
 function readState(path: string = WS_PATH): WorkspaceState {
@@ -45,6 +78,7 @@ function writeState(state: WorkspaceState, path: string = WS_PATH): void {
 
 function emptyState(): WorkspaceState {
   return {
+    schema_version: WORKSPACE_SCHEMA_VERSION,
     intent_id: "",
     phase: "idle",
     target_files: [],
@@ -53,6 +87,10 @@ function emptyState(): WorkspaceState {
     emissary_observations: [],
     action_items: [],
     prediction_log: [],
+    summary_debt_pending: [],
+    summary_debt_log: [],
+    workflow_policy: defaultWorkflowPolicy(),
+    verifier_report: null,
   };
 }
 
@@ -67,8 +105,11 @@ export function startIntent(
   constraints: string[] = [],
   path: string = WS_PATH
 ): WorkspaceState {
+  const existing = readState(path);
+  const pending = existing.summary_debt_pending ?? [];
   const state: WorkspaceState = {
     ...emptyState(),
+    schema_version: WORKSPACE_SCHEMA_VERSION,
     intent_id: intentId,
     phase: "implementation",
     target_files: targetFiles,
@@ -77,7 +118,47 @@ export function startIntent(
       completed: false,
     })),
     master_constraints: constraints,
+    emissary_observations: [],
+    action_items: [],
+    prediction_log: [],
+    summary_debt_pending: pending,
+    summary_debt_log: [],
+    workflow_policy: {
+      ...defaultWorkflowPolicy(),
+      ...(existing.workflow_policy || {}),
+    },
+    verifier_report: null,
   };
+  writeState(state, path);
+  return state;
+}
+
+/**
+ * Append a deferred summary follow-up (Master-owned free text).
+ */
+export function appendSummaryDebtPending(
+  note: string,
+  path: string = WS_PATH
+): WorkspaceState {
+  const state = readState(path);
+  const pending = [...(state.summary_debt_pending || [])];
+  if (note.trim() && !pending.includes(note.trim())) {
+    pending.push(note.trim());
+  }
+  state.summary_debt_pending = pending;
+  writeState(state, path);
+  return state;
+}
+
+/**
+ * Replace structured summary debt log (e.g. after verifier run).
+ */
+export function setSummaryDebtLog(
+  entries: SummaryDebtLogEntry[],
+  path: string = WS_PATH
+): WorkspaceState {
+  const state = readState(path);
+  state.summary_debt_log = entries;
   writeState(state, path);
   return state;
 }
@@ -128,4 +209,4 @@ export function completeIntent(
   return state;
 }
 
-export { readState, emptyState, type WorkspaceState, type AcceptanceCriterion };
+export { readState, emptyState };

@@ -65,6 +65,7 @@ pred_low=0
 pred_high=0
 callosal_bytes=0
 summary_debt_count=0
+summary_debt_pending_count=0
 file_count=0
 
 if [ -f "$WORKSPACE_STATE" ]; then
@@ -99,6 +100,22 @@ if [ -f "$WORKSPACE_STATE" ]; then
     summary_debt_count=${summary_debt_count:-0}
   fi
 
+  summary_debt_pending_count=0
+  if command -v node >/dev/null 2>&1 && [ -f "$WORKSPACE_STATE" ]; then
+    summary_debt_pending_count=$(node -e "
+      const fs=require('fs');
+      const p='.cursor/plans/workspace_state.json';
+      if(!fs.existsSync(p)){process.stdout.write('0');process.exit(0);}
+      try {
+        const j=JSON.parse(fs.readFileSync(p,'utf8'));
+        const a=j.summary_debt_pending;
+        process.stdout.write(String(Array.isArray(a)?a.length:0));
+      } catch { process.stdout.write('0'); }
+    " 2>/dev/null || echo "0")
+    summary_debt_pending_count=$(echo "$summary_debt_pending_count" | tr -d '[:space:]')
+    summary_debt_pending_count=${summary_debt_pending_count:-0}
+  fi
+
   file_count=0
   if grep -q '"target_files"' "$WORKSPACE_STATE" 2>/dev/null; then
     file_count=$(grep -A 50 '"target_files"' "$WORKSPACE_STATE" 2>/dev/null | grep -c '\.' || true)
@@ -117,13 +134,13 @@ fi
 
 mkdir -p "$(dirname "$TELEMETRY_FILE")"
 
-printf '{"timestamp":"%s","intent_id":"%s","model_config":{"master":"%s","implementer":"%s","verifier":"%s"},"tests":{"passed":%s,"failed":%s,"result":"%s"},"lint":"%s","workspace_phase":"%s","signal":"%s","iterations":%s,"predictions":{"total":%s,"low_surprise":%s,"high_surprise":%s},"callosal_bytes":%s,"summary_debt_count":%s,"file_count":%s,"cost_usd":%s}\n' \
+printf '{"timestamp":"%s","intent_id":"%s","model_config":{"master":"%s","implementer":"%s","verifier":"%s"},"tests":{"passed":%s,"failed":%s,"result":"%s"},"lint":"%s","workspace_phase":"%s","signal":"%s","iterations":%s,"predictions":{"total":%s,"low_surprise":%s,"high_surprise":%s},"callosal_bytes":%s,"summary_debt_count":%s,"summary_debt_pending_count":%s,"file_count":%s,"cost_usd":%s}\n' \
   "$TIMESTAMP" "$INTENT_ID" \
   "$model_master" "$model_implementer" "$model_verifier" \
   "${test_passed:-0}" "${test_failed:-0}" "$test_result" \
   "$lint_result" "$workspace_phase" "$signal" "$iterations" \
   "$pred_total" "$pred_low" "$pred_high" \
-  "$callosal_bytes" "$summary_debt_count" "$file_count" \
+  "$callosal_bytes" "$summary_debt_count" "${summary_debt_pending_count:-0}" "$file_count" \
   "$COST_USD" \
   >> "$TELEMETRY_FILE"
 
